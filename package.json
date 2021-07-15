@@ -1,0 +1,40 @@
+{
+  "name": "lori",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --minify --sourcemap=external --outfile=dist/index.js",
+    "watch": "esbuild src/index.ts --bundle --watch --sourcemap=external --outfile=dist/index.js",
+    "dev": "concurrently \"yarn watch\" \"nodemon dist/index.js\"",
+    "test": "jest",
+    "test:watch": "jest --watchAll --collectCoverage"
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": [
+        "esbuild-jest",
+        {
+          "sourcemap": true,
+          "loaders": {
+            ".test.ts": "ts"
+          }
+        }
+      ]
+    },
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/"
+    ]
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.24",
+    "@types/node": "^15.12.5",
+    "concurrently": "^6.2.0",
+    "esbuild": "^0.12.12",
+    "esbuild-jest": "^0.5.0",
+    "jest": "^27.0.6",
+    "nodemon": "^2.0.9",
+    "typescript": "^4.3.4"
+  }
+}
