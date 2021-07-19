@@ -14,6 +14,56 @@ enum TaskBranches {
   Fail,
 }
 
+// type TaskStackType = { fn: Function; branch: TaskBranches } | TaskStackType[];
+
+// class TaskStack {
+//   private stack: TaskStackType[] = [];
+
+//   public add(fn: Function, branch = TaskBranches.Success) {
+//     this.stack.push({ fn, branch });
+//     return this;
+//   }
+
+//   public addArray(arr: TaskStackType[]) {
+//     this.stack.push(arr);
+//     return this;
+//   }
+
+//   public clear() {
+//     this.stack = [];
+//     return this;
+//   }
+
+//   public *[Symbol.iterator]() {
+//     // const self: any = this as any;
+//     for (const s of this.stack) {
+//       if (s ){}
+//       yield s;
+//     }
+//   }
+// }
+
+// const stack = new TaskStack();
+// stack
+//   .add(() => 1)
+//   .add(() => 2)
+//   .addArray([
+//     {
+//       fn: () => 3,
+//       branch: TaskBranches.Success,
+//     },
+//     {
+//       fn: () => 4,
+//       branch: TaskBranches.Success,
+//     },
+//   ])
+//   .add(() => 5);
+
+// for (const e of stack) {
+//   console.log("e", Array.isArray(e));
+// }
+
+let taskInstancesCount = 0;
 export class Task<
   T,
   ReqENV extends Object = {},
@@ -21,46 +71,44 @@ export class Task<
   Err extends unknown = undefined,
   Async extends boolean = false
 > {
-  protected stack: { fn: Function; branch: TaskBranches }[] = [];
+  protected stack: { name: string; fn: Function; branch: TaskBranches; repeat: boolean; restore: boolean }[] = [];
   protected env: ProvEnv = {} as ProvEnv;
   protected branchId = TaskBranches.Success;
-  private callOffset = 0;
+  protected branches: [any, any] = [undefined, undefined];
+  protected id = taskInstancesCount++;
+  protected destroyHandlers: Function[] = [];
 
   // Mutable for performance
   protected castThis<R, E = ReqENV, P = ProvEnv, ER = Err, A extends boolean = Async>() {
     return this as any as Task<R, E, P, ER, A>;
   }
 
-  protected addStack<F extends Function>(fn: F, branch = TaskBranches.Success) {
-    this.stack.push({ fn, branch });
+  protected addStack<F extends Function>(
+    name: string,
+    fn: F,
+    branch = TaskBranches.Success,
+    repeat = false,
+    restore = false
+  ) {
+    this.stack.push({ fn, branch, repeat, name, restore });
+    return this;
   }
 
   public map<R, RR = R extends Promise<infer D> ? D : R>(fn: (value: T) => R) {
-    this.addStack(fn);
-    return this.castThis<RR, ReqENV, ProvEnv, Err, R extends Promise<any> ? true : Async>();
+    const self = this.castThis<RR, ReqENV, ProvEnv, Err, R extends Promise<any> ? true : Async>();
+    return self.addStack("map", fn);
   }
 
   public mapError<NE>(fn: (value: Err) => NE) {
-    this.addStack(fn, TaskBranches.Fail);
-    return this.castThis<T, ReqENV, ProvEnv, NE, Async>();
+    const self = this.castThis<T, ReqENV, ProvEnv, NE, Async>();
+    return self.addStack("mapError", fn, TaskBranches.Fail);
   }
 
   public chain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(
     fn: (value: T) => Task<NT, NRE, NPE, NER, A>
   ) {
     const self = this.castThis<NT, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
-
-    let stackIndex = this.stack.length + 1;
-    this.addStack((val: T) => {
-      const eff = fn(val);
-
-      eff.provide(self.env);
-
-      self.stack.splice(stackIndex + this.callOffset, 0, ...eff.stack);
-      this.callOffset += eff.stack.length;
-    });
-
-    return self;
+    return self.addStack("chain", (val: T) => fn(val).provide<any>(self.env).run());
   }
 
   public mapTo<R>(value: R) {
@@ -68,15 +116,41 @@ export class Task<
   }
 
   public tap<R>(fn: (value: T) => R) {
-    return this.map((val: T) => {
+    return this.addStack("tap", (val: T) => {
       fn(val);
       return val;
     });
   }
 
+  public repeatWhile(fn: (value: T) => boolean) {
+    return this.addStack("repeatWhile", fn, TaskBranches.Success, true);
+  }
+
+  public repeat(count: number) {
+    return this.repeatWhile(() => count-- > 0);
+  }
+
+  public reduce<R>(fn: (value: T, current: R) => R, initial: R) {
+    const self = this.castThis<R>();
+    return self.addStack("reduce", (item: T) => {
+      initial = fn(item, initial);
+      return initial;
+    });
+  }
+
+  public retryWhile(fn: () => boolean) {
+    let count = 0;
+    return this.addStack(
+      "retryWhile",
+      () => (count++ === 0 || this.branchId === TaskBranches.Fail) && fn(),
+      TaskBranches.Success,
+      true,
+      true
+    );
+  }
+
   public access<E>() {
-    this.addStack(() => this.env);
-    return this.castThis<E, E>();
+    return this.castThis<E, E>().addStack("access", () => this.env);
   }
 
   public provide<E extends Partial<ReqENV>>(env: E) {
@@ -85,35 +159,95 @@ export class Task<
     return self;
   }
 
+  private runPartial(start = 0) {
+    for (let i = start; i < this.stack.length; i++) {
+      const item = this.stack[i];
+
+      try {
+        if (item.branch !== this.branchId) {
+          continue;
+        }
+
+        const value = this.branches[this.branchId];
+
+        if (item.repeat && i + 1 < this.stack.length) {
+          const [left, right] = this.branches;
+
+          let prevBranch = this.branchId;
+          while (item.fn(value)) {
+            if (item.restore) {
+              prevBranch = this.branchId;
+              this.branchId = item.branch;
+            }
+            this.runPartial(i + 1);
+            this.branches[0] = left;
+            this.branches[1] = right;
+          }
+          if (item.restore && start === 0) {
+            this.branchId = prevBranch;
+          }
+          if (item.restore && prevBranch !== TaskBranches.Fail) {
+            return;
+          }
+        } else {
+          this.branches[this.branchId] = value instanceof Promise ? value.then(item.fn as any) : item.fn(value);
+        }
+      } catch (e) {
+        this.branchId = TaskBranches.Fail;
+        this.branches[this.branchId] = e;
+      }
+    }
+  }
+
   public run<R = Async extends true ? Promise<T> : T | Error>(
     ..._: ProvEnv extends ReqENV
       ? EmptyArray
       : [Errors: { [k in keyof DiffErr<ReqENV, ProvEnv>]: DiffErr<ReqENV, ProvEnv>[k] }]
   ): R {
-    let branches: any[] = [undefined, undefined];
+    this.runPartial();
 
-    for (let { fn, branch } of this.stack) {
-      try {
-        if (branch === this.branchId) {
-          const value = branches[this.branchId];
-          branches[this.branchId] = value instanceof Promise ? value.then(fn as any) : fn(value);
-        }
-      } catch (e) {
-        this.branchId = TaskBranches.Fail;
-        branches[this.branchId] = e;
-      }
-    }
+    const result = this.branches[this.branchId];
 
-    const result = branches[this.branchId];
     if (this.branchId === TaskBranches.Fail) {
       if (result instanceof Promise) {
-        return Promise.reject(0).catch(() => result) as any;
+        return Promise.reject(0)
+          .catch(() => result)
+          .finally(() => this.ensureAll()) as any;
       }
 
       return result instanceof Error ? result : (new Error(result) as any);
     }
 
+    if (result instanceof Promise) {
+      return result.finally(() => this.ensureAll()) as any;
+    }
+
+    this.ensureAll();
+
     return result;
+  }
+
+  protected ensureAll() {
+    this.destroyHandlers.forEach((handler) => handler());
+  }
+
+  public ensure(handler: <U>(value: T) => U) {
+    this.addStack("ensure", (val: T) => {
+      this.destroyHandlers.push(() => handler(val));
+      return val;
+    });
+
+    return this;
+  }
+
+  public sleep(time: number) {
+    const self = this.castThis<T, ReqENV, ProvEnv, Err, true>();
+
+    self.addStack("sleep", (value: T) => {
+      return new Promise((resolve) => setTimeout(() => resolve(value), time));
+    });
+
+    return self;
   }
 
   protected switchBranch(branch: TaskBranches) {
@@ -124,6 +258,17 @@ export class Task<
 
   static succeed<T>(value: T) {
     return new Task().switchBranch(TaskBranches.Success).mapTo(value);
+  }
+
+  static structPar<
+    T extends Record<string, Task<any>>,
+    R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
+  >(struct: T): Task<R> {
+    return new Task().switchBranch(TaskBranches.Success).map(async () => {
+      return Object.fromEntries(
+        await Promise.all(Object.entries(struct).map(async ([name, task]) => [name, await task.run()]))
+      );
+    }) as any;
   }
 
   static fail<ERR>(err: ERR) {
@@ -228,7 +373,7 @@ export class Task<
 
 // const max = 800_000;
 
-// (async () => {
+// setTimeout(async () => {
 //   //   bench("sync", (stop) => {
 //   //     let s = "";
 
@@ -242,6 +387,7 @@ export class Task<
 //   //     // console.log(s);
 //   //     stop();
 //   //   });
+//   //
 
 //   bench("efff sync", (stop) => {
 //     let s = "";
@@ -253,7 +399,7 @@ export class Task<
 //         .map((e) => `@+${e.log}`)
 //         .provide({ log: 5 })
 //         .run();
-//     }
+//     } //
 
 //     console.log(s);
 //     stop();
@@ -274,7 +420,7 @@ export class Task<
 //   //     console.log(s);
 //   //     stop();
 //   //   });
-// })();
+// }, 1000);
 
 // bench("ddd efff", (stop) => {
 //   let s = "";

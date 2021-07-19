@@ -5,7 +5,7 @@ export const makeTestRunner = (filename: string) => {
   let currentTestId = 0;
 
   const codes = [...file.matchAll(/makeTest\((\s*(async|)\s*\([a-zA-Z0-9_]*\)\s*=>\s*((.|\s)*?),(.|\s)*?);/gm)].map(
-    (r) => r[3]
+    (r) => r[1]
   );
 
   return async (
