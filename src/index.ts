@@ -206,23 +206,23 @@ export class Task<
   ): R {
     this.runPartial();
 
-    const result = this.branches[this.branchId];
+    let result = this.branches[this.branchId];
+
+    if (result instanceof Promise) {
+      result = result.finally(() => {
+        this.ensureAll();
+      }) as any;
+    } else {
+      this.ensureAll();
+    }
 
     if (this.branchId === TaskBranches.Fail) {
       if (result instanceof Promise) {
-        return Promise.reject(0)
-          .catch(() => result)
-          .finally(() => this.ensureAll()) as any;
+        return Promise.reject(0).catch(() => result) as any;
       }
 
       return result instanceof Error ? result : (new Error(result) as any);
     }
-
-    if (result instanceof Promise) {
-      return result.finally(() => this.ensureAll()) as any;
-    }
-
-    this.ensureAll();
 
     return result;
   }

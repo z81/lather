@@ -102,6 +102,21 @@ makeTest(
 makeTest(
   () =>
     Task.succeed(2)
+      .map((q) => Promise.resolve(q + 2))
+      .chain((s) =>
+        Task.succeed(Promise.resolve(s * 2))
+          .sleep(5)
+          .map((q) => q + 2)
+      )
+      .chain((s) => Task.succeed(Promise.resolve(s * 3)).map((q) => q + 3))
+      .map((s) => Promise.resolve(s + 4))
+      .run(),
+  (r) => r.toBe(37)
+);
+
+makeTest(
+  () =>
+    Task.succeed(2)
       .map((q) => q * 2)
       .map((s) => Promise.resolve(s + 2))
       .mapError(() => "2")
@@ -281,7 +296,7 @@ makeTest(
       .map((val) => Date.now() - val)
       .map((val) => Math.round(val / 30))
       .run(),
-  (r) => r.toEqual(3)
+  (r) => r.toEqual(1)
 );
 
 makeTest(
@@ -290,11 +305,20 @@ makeTest(
 );
 
 makeTest(
-  async (fn) => Task.succeed(4).ensure(fn).sleep(5).run() && fn.mock.calls.length,
+  async (fn) => (await Task.succeed(4).ensure(fn).sleep(5).run()) && fn.mock.calls.length,
   (r) => r.toEqual(1)
 );
 
 makeTest(
-  async (fn) => Task.succeed(4).sleep(5).ensure(fn).run() && fn.mock.calls.length,
+  async (fn) => (await Task.succeed(4).sleep(5).ensure(fn).run()) && fn.mock.calls.length,
+  (r) => r.toEqual(1)
+);
+
+makeTest(
+  async (fn) =>
+    (await Task.succeed(4)
+      .map(() => Promise.resolve(5))
+      .ensure(fn)
+      .run()) && fn.mock.calls.length,
   (r) => r.toEqual(1)
 );
