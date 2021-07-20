@@ -138,9 +138,7 @@ export class Task<
   }
 
   public reduce<R>(fn: (value: T, current: R) => R, initial: R) {
-    const self = this.castThis<R>();
-
-    return self.addStack("reduce", (item: T) => {
+    return this.addStack("reduce", (item: T) => {
       initial = fn(item, initial);
       return initial;
     });
@@ -257,13 +255,9 @@ export class Task<
   }
 
   public sleep(time: number) {
-    const self = this.castThis<T, ReqENV, ProvEnv, Err, true>();
-
-    self.addStack("sleep", (value: T) => {
-      return new Promise((resolve) => setTimeout(() => resolve(value), time));
+    return this.addStack("sleep", (value: T) => {
+      return new Promise<T>((resolve) => setTimeout(() => resolve(value), time));
     });
-
-    return self;
   }
 
   protected switchBranch(branch: TaskBranches) {
