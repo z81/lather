@@ -291,7 +291,7 @@ export class Task<
   static fail<ERR>(err: ERR) {
     return new Task()
       .switchBranch(TaskBranches.Fail)
-      .addStack("fail", () => err)
+      .addStack("fail", () => err, TaskBranches.Fail)
       .castThis<Error, {}, {}, ERR, false>();
   }
 }
