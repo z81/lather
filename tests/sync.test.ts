@@ -322,3 +322,19 @@ makeTest(
       .run()) && fn.mock.calls.length,
   (r) => r.toEqual(1)
 );
+
+// type checks
+const a = Task.succeed(4).run();
+const aa: number | Error = a;
+
+const b = Task.succeed(Promise.resolve(5)).run();
+const bb: Promise<Error | number> = b;
+
+const c = Task.succeed(5);
+const cc: Task<number, {}, {}, unknown, false> = c;
+
+const d = Task.succeed(Promise.resolve(5));
+const dd: Task<number, {}, {}, unknown, false> = d;
+
+const e = Task.succeed(5).mapTo(5);
+const ee: Task<number, {}, {}, unknown, false> = c;

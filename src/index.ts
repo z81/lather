@@ -62,8 +62,10 @@ enum TaskBranches {
 // for (const e of stack) {
 //   console.log("e", Array.isArray(e));
 // }
+type SomeFunction = (...args: any[]) => any;
 
 let taskInstancesCount = 0;
+
 export class Task<
   T,
   ReqENV extends Object = {},
@@ -83,7 +85,7 @@ export class Task<
     return this as any as Task<R, E, P, ER, A>;
   }
 
-  protected addStack<F extends Function>(
+  protected addStack<F extends SomeFunction, R extends ReturnType<F>>(
     name: string,
     fn: F,
     branch = TaskBranches.Success,
@@ -91,17 +93,22 @@ export class Task<
     restore = false
   ) {
     this.stack.push({ fn, branch, repeat, name, restore });
-    return this;
+
+    return this.castThis<
+      R extends Promise<infer P> ? P : R,
+      ReqENV,
+      ProvEnv,
+      Err,
+      R extends Promise<infer P> ? true : Async
+    >();
   }
 
-  public map<R, RR = R extends Promise<infer D> ? D : R>(fn: (value: T) => R) {
-    const self = this.castThis<RR, ReqENV, ProvEnv, Err, R extends Promise<any> ? true : Async>();
-    return self.addStack("map", fn);
+  public map<R>(fn: (value: T) => R) {
+    return this.addStack("map", fn);
   }
 
   public mapError<NE>(fn: (value: Err) => NE) {
-    const self = this.castThis<T, ReqENV, ProvEnv, NE, Async>();
-    return self.addStack("mapError", fn, TaskBranches.Fail);
+    return this.addStack("mapError", fn, TaskBranches.Fail).castThis<T, ReqENV, ProvEnv, NE, Async>();
   }
 
   public chain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(
@@ -112,7 +119,7 @@ export class Task<
   }
 
   public mapTo<R>(value: R) {
-    return this.map(() => value);
+    return this.addStack("mapTo", () => value);
   }
 
   public tap<R>(fn: (value: T) => R) {
@@ -122,16 +129,17 @@ export class Task<
     });
   }
 
-  public repeatWhile(fn: (value: T) => boolean) {
-    return this.addStack("repeatWhile", fn, TaskBranches.Success, true);
+  public repeatWhile<U extends (value: T) => boolean>(fn: U) {
+    return this.addStack("repeatWhile", fn, TaskBranches.Success, true).castThis<T>();
   }
 
   public repeat(count: number) {
-    return this.repeatWhile(() => count-- > 0);
+    return this.addStack("repeat", () => count-- > 0, TaskBranches.Success, true).castThis<T>();
   }
 
   public reduce<R>(fn: (value: T, current: R) => R, initial: R) {
     const self = this.castThis<R>();
+
     return self.addStack("reduce", (item: T) => {
       initial = fn(item, initial);
       return initial;
@@ -146,17 +154,25 @@ export class Task<
       TaskBranches.Success,
       true,
       true
-    );
+    ).castThis<T>();
   }
 
   public access<E>() {
-    return this.castThis<E, E>().addStack("access", () => this.env);
+    return this.addStack("access", () => this.env).castThis<E, E>();
   }
 
   public provide<E extends Partial<ReqENV>>(env: E) {
-    const self = this.castThis<T, ReqENV, ProvEnv & E>();
-    self.env = { ...self.env, ...env };
-    return self;
+    this.stack.unshift({
+      name: "provide",
+      fn: (v: T) => {
+        this.env = { ...this.env, ...env };
+        return v;
+      },
+      branch: TaskBranches.Success,
+      restore: false,
+      repeat: false,
+    });
+    return this.castThis<T, ReqENV, ProvEnv & E>();
   }
 
   private runPartial(start = 0) {
@@ -251,28 +267,32 @@ export class Task<
   }
 
   protected switchBranch(branch: TaskBranches) {
-    return this.tap(() => {
+    return this.addStack("", (val: T) => {
       this.branchId = branch;
+      return val;
     });
   }
 
   static succeed<T>(value: T) {
-    return new Task().switchBranch(TaskBranches.Success).mapTo(value);
+    return new Task().switchBranch(TaskBranches.Success).addStack("succeed", () => value);
   }
 
   static structPar<
     T extends Record<string, Task<any>>,
     R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
   >(struct: T): Task<R> {
-    return new Task().switchBranch(TaskBranches.Success).map(async () => {
+    return new Task().switchBranch(TaskBranches.Success).addStack("structPar", async () => {
       return Object.fromEntries(
         await Promise.all(Object.entries(struct).map(async ([name, task]) => [name, await task.run()]))
       );
-    }) as any;
+    });
   }
 
   static fail<ERR>(err: ERR) {
-    return new Task<Error, {}, {}, ERR, false>().switchBranch(TaskBranches.Fail).mapError(() => err);
+    return new Task()
+      .switchBranch(TaskBranches.Fail)
+      .addStack("fail", () => err)
+      .castThis<Error, {}, {}, ERR, false>();
   }
 }
 
