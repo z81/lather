@@ -62,9 +62,15 @@ enum TaskBranches {
 // for (const e of stack) {
 //   console.log("e", Array.isArray(e));
 // }
+// class Future<T, E> extends Promise<T> {}
+
 type SomeFunction = (...args: any[]) => any;
 
 let taskInstancesCount = 0;
+
+interface Iterable<T> {
+  [Symbol.iterator](): IterableIterator<T>;
+}
 
 export class Task<
   T,
@@ -73,7 +79,14 @@ export class Task<
   Err extends unknown = undefined,
   Async extends boolean = false
 > {
-  protected stack: { name: string; fn: Function; branch: TaskBranches; repeat: boolean; restore: boolean }[] = [];
+  protected stack: {
+    name: string;
+    fn: Function;
+    branch: TaskBranches;
+    repeat?: (val: T) => boolean;
+    restore: boolean;
+    stopMain?: boolean;
+  }[] = [];
   protected env: ProvEnv = {} as ProvEnv;
   protected branchId = TaskBranches.Success;
   protected branches: [any, any] = [undefined, undefined];
@@ -89,10 +102,11 @@ export class Task<
     name: string,
     fn: F,
     branch = TaskBranches.Success,
-    repeat = false,
-    restore = false
+    repeat: ((val: T) => boolean) | undefined = undefined,
+    restore = false,
+    stopMain = false
   ) {
-    this.stack.push({ fn, branch, repeat, name, restore });
+    this.stack.push({ fn, branch, repeat, name, restore, stopMain });
 
     return this.castThis<
       R extends Promise<infer P> ? P : R,
@@ -130,11 +144,40 @@ export class Task<
   }
 
   public repeatWhile<U extends (value: T) => boolean>(fn: U) {
-    return this.addStack("repeatWhile", fn, TaskBranches.Success, true).castThis<T>();
+    return this.addStack("repeatWhile", (t) => t, TaskBranches.Success, fn);
   }
 
   public repeat(count: number) {
-    return this.addStack("repeat", () => count-- > 0, TaskBranches.Success, true).castThis<T>();
+    return this.addStack(
+      "repeat",
+      (t) => t,
+      TaskBranches.Success,
+      () => count-- > 0
+    );
+  }
+
+  private sequenceGen(fn: <R>(val: T) => Generator<T, unknown, R>) {
+    let gen: Generator;
+    let next: IteratorResult<unknown, any>;
+
+    return this.addStack(
+      "sequenceFrom",
+      (value: T) => {
+        if (!gen) {
+          gen = fn(value);
+          next = gen.next();
+        }
+
+        const val = next.value;
+        next = gen.next();
+
+        return val;
+      },
+      TaskBranches.Success,
+      () => !next?.done,
+      false,
+      true
+    ).castThis<T>();
   }
 
   public reduce<R>(fn: (value: T, current: R) => R, initial: R) {
@@ -148,8 +191,9 @@ export class Task<
     let count = 0;
     return this.addStack(
       "retryWhile",
-      () => (count++ === 0 || this.branchId === TaskBranches.Fail) && fn(),
+      (t) => t,
       TaskBranches.Success,
+      () => (count++ === 0 || this.branchId === TaskBranches.Fail) && fn(),
       true,
       true
     ).castThis<T>();
@@ -168,7 +212,6 @@ export class Task<
       },
       branch: TaskBranches.Success,
       restore: false,
-      repeat: false,
     });
     return this.castThis<T, ReqENV, ProvEnv & E>();
   }
@@ -188,19 +231,24 @@ export class Task<
           const [left, right] = this.branches;
 
           let prevBranch = this.branchId;
-          while (item.fn(value)) {
+          while (item.repeat(value)) {
             if (item.restore) {
               prevBranch = this.branchId;
               this.branchId = item.branch;
             }
+
+            this.branches[this.branchId] = item.fn(value);
             this.runPartial(i + 1);
-            this.branches[0] = left;
-            this.branches[1] = right;
+
+            if (!item.stopMain) {
+              this.branches[0] = left;
+              this.branches[1] = right;
+            }
           }
           if (item.restore && start === 0) {
             this.branchId = prevBranch;
           }
-          if (item.restore && prevBranch !== TaskBranches.Fail) {
+          if (item.stopMain) {
             return;
           }
         } else {
@@ -241,6 +289,21 @@ export class Task<
     return result;
   }
 
+  public collectWhen(fn: (item: T) => boolean) {
+    const all: T[] = [];
+    return this.addStack("collectWhen", (item: T) => {
+      if (fn(item)) {
+        all.push(item);
+      }
+
+      return all;
+    });
+  }
+
+  public collectAll() {
+    return this.collectWhen(() => true);
+  }
+
   protected ensureAll() {
     this.destroyHandlers.forEach((handler) => handler());
   }
@@ -271,6 +334,17 @@ export class Task<
     return new Task().switchBranch(TaskBranches.Success).addStack("succeed", () => value);
   }
 
+  static sequenceGen<T>(fn: () => Generator<T, void, any>) {
+    return new Task().switchBranch(TaskBranches.Success).sequenceGen(fn).castThis<T>();
+  }
+
+  static sequenceFrom<T, R>(iter: Iterable<R>) {
+    return new Task()
+      .switchBranch(TaskBranches.Success)
+      .sequenceGen(() => (iter as any)[Symbol.iterator]())
+      .castThis<R>();
+  }
+
   static structPar<
     T extends Record<string, Task<any>>,
     R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
@@ -280,6 +354,34 @@ export class Task<
         await Promise.all(Object.entries(struct).map(async ([name, task]) => [name, await task.run()]))
       );
     });
+  }
+
+  static struct<
+    T extends Record<string, Task<any>>,
+    R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
+  >(struct: T): Task<R> {
+    return new Task().switchBranch(TaskBranches.Success).addStack("struct", () => {
+      const obj: Record<string, T> = {};
+      const res = Object.entries(struct).reduce((val, [name, task]) => {
+        if (val instanceof Promise) {
+          return val.then(async () => {
+            obj[name] = await task.run();
+          });
+        }
+
+        const res = task.run();
+
+        if (res instanceof Promise) {
+          return res.then(async () => {
+            obj[name] = await task.run();
+          });
+        }
+
+        obj[name] = res;
+        return res;
+      }, {});
+      return res instanceof Promise ? (res.then(() => obj) as any) : obj;
+    }) as any;
   }
 
   static fail<ERR>(err: ERR) {

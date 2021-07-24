@@ -266,6 +266,100 @@ makeTest(
   (r) => r.toEqual({ a: 1, b: 2 })
 );
 
+/* StructPar ordering */
+makeTest(
+  async () =>
+    Task.structPar({
+      a: Task.succeed(1).map(() => Date.now()),
+      b: Task.succeed(2).map(() => Date.now()),
+    })
+      .map(({ a, b }) => a - b)
+      .run(),
+  (r) => r.toEqual(0)
+);
+
+makeTest(
+  async () =>
+    Task.structPar({
+      a: Task.succeed(1)
+        .sleep(1)
+        .map(() => Date.now()),
+      b: Task.succeed(2)
+        .sleep(4)
+        .map(() => Date.now()),
+    })
+      .map(({ a, b }) => a - b)
+      .run(),
+  (r) => r.not.toEqual(0)
+);
+
+makeTest(
+  async () =>
+    Task.struct({
+      a: Task.succeed(1)
+        .sleep(1)
+        .map(() => Date.now()),
+      b: Task.succeed(2)
+        .sleep(4)
+        .map(() => Date.now()),
+    })
+      .map(({ a, b }) => a - b)
+      .run(),
+  (r) => r.not.toEqual(0)
+);
+
+makeTest(
+  async () =>
+    Task.structPar({
+      a: Task.succeed(1)
+        .sleep(5)
+        .map(() => Date.now()),
+      b: Task.succeed(2)
+        .sleep(5)
+        .map(() => Date.now()),
+    })
+      .map(({ a, b }) => a - b)
+      .run(),
+  (r) => r.toEqual(0)
+);
+
+makeTest(
+  async () =>
+    Task.struct({
+      a: Task.succeed(1)
+        .sleep(5)
+        .map(() => Date.now()),
+      b: Task.succeed(2)
+        .sleep(5)
+        .map(() => Date.now()),
+    })
+      .map(({ a, b }) => a - b)
+      .run(),
+  (r) => r.not.toEqual(0)
+);
+
+makeTest(
+  async () =>
+    Task.struct({
+      a: Task.succeed(1).map(() => Date.now()),
+      b: Task.succeed(2).map(() => Date.now()),
+    })
+      .map(({ a, b }) => a - b)
+      .run(),
+  (r) => r.toEqual(0)
+);
+
+makeTest(
+  async () =>
+    Task.struct({
+      a: Task.succeed(1).map(() => Date.now()),
+      b: Task.succeed(2).map(() => Date.now()),
+    })
+      .map(({ a, b }) => a - b)
+      .run() instanceof Promise,
+  (r) => r.toEqual(false)
+);
+
 makeTest(
   async () =>
     Task.structPar({
@@ -321,6 +415,56 @@ makeTest(
       .ensure(fn)
       .run()) && fn.mock.calls.length,
   (r) => r.toEqual(1)
+);
+
+// seq
+makeTest(
+  async () =>
+    Task.sequenceGen(function* () {
+      yield 1;
+      yield 2;
+      yield 3;
+    })
+      .reduce((a, b) => a + b, 0)
+      .run(),
+  (r) => r.toEqual(6)
+);
+
+makeTest(
+  async () =>
+    Task.sequenceFrom([1, 2, 3])
+      .reduce((a, b) => a + b, 0)
+      .run(),
+  (r) => r.toEqual(6)
+);
+
+makeTest(
+  async () =>
+    Task.sequenceFrom("abc")
+      .map((s) => `[${s}]`)
+      .run(),
+  (r) => r.toEqual("[c]")
+);
+
+makeTest(
+  async () =>
+    Task.sequenceFrom("abc")
+      .collectWhen((s) => s !== "b")
+      .run(),
+  (r) => r.toEqual(["a", "c"])
+);
+
+makeTest(
+  async () => Task.sequenceFrom("abc").collectAll().run(),
+  (r) => r.toEqual(["a", "b", "c"])
+);
+
+makeTest(
+  async () =>
+    Task.sequenceFrom("abc")
+      .reduce((a, b) => `${b}-${a}`, "")
+      .run(),
+  (r) => r.toEqual("-a-b-c")
 );
 
 // type checks
