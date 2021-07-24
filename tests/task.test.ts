@@ -1,4 +1,4 @@
-import { Task } from "../src";
+import { Task } from "../src/task";
 import { makeTestRunner } from "./configure";
 
 const makeTest = makeTestRunner(__filename);
