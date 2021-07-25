@@ -151,9 +151,9 @@ makeTest(
 makeTest(
   async () => {
     try {
-      await Task.fail("6")
+      (await Task.fail("6")
         .mapError((s) => Promise.reject(s))
-        .runPromise();
+        .runPromise()) && 123;
     } catch (e) {
       return e;
     }

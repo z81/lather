@@ -298,7 +298,7 @@ export class Task<
 
     if (this.branchId === TaskBranches.Fail) {
       if (result instanceof Promise) {
-        return Promise.reject(result) as any;
+        return Promise.reject(0).catch(() => result) as any;
       }
 
       return result instanceof Error ? result : (new Error(result) as any);
