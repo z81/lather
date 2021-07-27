@@ -36,7 +36,7 @@ export class Task<
     branch: TaskBranches;
     repeat?: (val: T) => boolean;
     restore: boolean;
-    stopMain?: boolean;
+    stop?: boolean;
   }[] = [];
   protected env: ProvEnv = {} as ProvEnv;
   protected branchId = TaskBranches.Success;
@@ -59,7 +59,7 @@ export class Task<
     restore = false,
     stopMain = false
   ) {
-    this.stack.push({ fn, branch, repeat, name, restore, stopMain });
+    this.stack.push({ fn, branch, repeat, name, restore, stop: stopMain });
 
     return this.castThis<
       R extends Promise<infer P> ? P : R,
@@ -253,7 +253,7 @@ export class Task<
             this.branches[this.branchId] = item.fn(value);
             this.runPartial(i + 1);
 
-            if (!item.stopMain) {
+            if (!item.stop) {
               this.branches[0] = left;
               this.branches[1] = right;
             }
@@ -261,7 +261,7 @@ export class Task<
           if (item.restore && start === 0) {
             this.branchId = prevBranch;
           }
-          if (item.stopMain) {
+          if (item.stop) {
             return;
           }
         } else {
