@@ -502,40 +502,40 @@ makeTest(
 makeTest(
   async () => {
     let task = Task.succeed(0);
-    for (let i = 0; i < 4500; i++) {
+    for (let i = 0; i < 10000; i++) {
       task = task.map((s) => s + 1);
     }
 
     return task.runPromise();
   },
-  (r) => r.toEqual(4500)
+  (r) => r.toEqual(10000)
 );
 
 makeTest(
   async () => {
     let task = Task.succeed(0);
-    for (let i = 0; i < 4000; i++) {
+    for (let i = 0; i < 10000; i++) {
       task = task.map((s) => s + 1);
     }
 
     return task
       .chain((t) => {
         let task = Task.succeed(t);
-        for (let i = 0; i < 400; i++) {
+        for (let i = 0; i < 10000; i++) {
           task = task.map((s) => s + 1);
         }
         return task;
       })
       .chain((t) => {
         let task = Task.succeed(t);
-        for (let i = 0; i < 200; i++) {
+        for (let i = 0; i < 10000; i++) {
           task = task.map((s) => s - 1);
         }
         return task;
       })
       .runPromise();
   },
-  (r) => r.toEqual(4500)
+  (r) => r.toEqual(10000)
 );
 
 // type checks
