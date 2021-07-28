@@ -498,6 +498,46 @@ makeTest(
   (r) => r.toEqual(["{Time}: one", "{Time}: two"])
 );
 
+// max stack
+makeTest(
+  async () => {
+    let task = Task.succeed(0);
+    for (let i = 0; i < 4500; i++) {
+      task = task.map((s) => s + 1);
+    }
+
+    return task.runPromise();
+  },
+  (r) => r.toEqual(4500)
+);
+
+makeTest(
+  async () => {
+    let task = Task.succeed(0);
+    for (let i = 0; i < 4000; i++) {
+      task = task.map((s) => s + 1);
+    }
+
+    return task
+      .chain((t) => {
+        let task = Task.succeed(t);
+        for (let i = 0; i < 400; i++) {
+          task = task.map((s) => s + 1);
+        }
+        return task;
+      })
+      .chain((t) => {
+        let task = Task.succeed(t);
+        for (let i = 0; i < 200; i++) {
+          task = task.map((s) => s - 1);
+        }
+        return task;
+      })
+      .runPromise();
+  },
+  (r) => r.toEqual(4500)
+);
+
 // type checks
 const a = Task.succeed(4).runPromise();
 const aa: number | Error = a;
