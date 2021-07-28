@@ -229,48 +229,65 @@ export class Task<
     return this.castThis<T, ReqENV, ProvEnv & E>();
   }
 
-  private runPartial(start = 0) {
-    for (let i = start; i < this.stack.length; i++) {
-      const item = this.stack[i];
+  private runPartial(i = 0) {
+    if (i === this.stack.length) {
+      return this.branches[this.branchId];
+    }
 
-      try {
-        if (item.branch !== this.branchId) {
-          continue;
-        }
+    const item = this.stack[i];
 
-        const value = this.branches[this.branchId];
-
-        if (item.repeat && i + 1 < this.stack.length) {
-          const [left, right] = this.branches;
-
-          let prevBranch = this.branchId;
-          while (item.repeat(value)) {
-            if (item.restore) {
-              prevBranch = this.branchId;
-              this.branchId = item.branch;
-            }
-
-            this.branches[this.branchId] = item.fn(value);
-            this.runPartial(i + 1);
-
-            if (!item.stop) {
-              this.branches[0] = left;
-              this.branches[1] = right;
-            }
-          }
-          if (item.restore && start === 0) {
-            this.branchId = prevBranch;
-          }
-          if (item.stop) {
-            return;
-          }
-        } else {
-          this.branches[this.branchId] = value instanceof Promise ? value.then(item.fn as any) : item.fn(value);
-        }
-      } catch (e) {
-        this.branchId = TaskBranches.Fail;
-        this.branches[this.branchId] = e;
+    try {
+      if (item.branch !== this.branchId) {
+        return;
       }
+
+      const value = this.branches[this.branchId];
+
+      if (item.repeat && i + 1 < this.stack.length) {
+        const [left, right] = this.branches;
+
+        let prevBranch = this.branchId;
+        while (item.repeat(value)) {
+          if (item.restore) {
+            prevBranch = this.branchId;
+            this.branchId = item.branch;
+          }
+
+          this.branches[this.branchId] = item.fn(value);
+          this.runPartial(i + 1);
+
+          if (!item.stop) {
+            this.branches[0] = left;
+            this.branches[1] = right;
+          }
+        }
+
+        if (!item.stop) {
+          this.runPartial(i + 1);
+        }
+      } else {
+        const result = item.fn(value);
+        if (result instanceof Promise) {
+          this.branches[this.branchId] = result.then(
+            (data) => {
+              this.branches[this.branchId] = data;
+              this.runPartial(i + 1);
+              return this.branches[this.branchId];
+            },
+            (err) => {
+              this.branchId = TaskBranches.Fail;
+              this.branches[this.branchId] = err;
+              return err;
+            }
+          );
+        } else {
+          this.branches[this.branchId] = result;
+          this.runPartial(i + 1);
+        }
+      }
+    } catch (e) {
+      this.branchId = TaskBranches.Fail;
+      this.branches[this.branchId] = e;
     }
   }
 
@@ -298,7 +315,7 @@ export class Task<
 
     if (this.branchId === TaskBranches.Fail) {
       if (result instanceof Promise) {
-        return Promise.reject(0).catch(() => result) as any;
+        return Promise.reject(result) as any;
       }
 
       return result instanceof Error ? result : (new Error(result) as any);

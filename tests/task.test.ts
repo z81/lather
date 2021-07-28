@@ -155,6 +155,8 @@ makeTest(
         .mapError((s) => Promise.reject(s))
         .runPromise()) && 123;
     } catch (e) {
+      console.log("catch", e);
+
       return e;
     }
   },
@@ -176,7 +178,7 @@ makeTest(
   (r) => r.toBe("Error: err")
 );
 
-// repeat
+// // repeat
 makeTest(
   async (fn) => Task.succeed("6").repeat(5).tap(fn).runPromise().toString() && fn.mock.calls.length,
   (r) => r.toBe(6)
