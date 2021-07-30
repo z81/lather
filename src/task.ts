@@ -31,7 +31,7 @@ export class Task<
   T,
   ReqENV extends Object = {},
   ProvEnv extends Object = {},
-  Err extends unknown = undefined,
+  Err extends unknown = Error,
   Async extends boolean = false
 > {
   protected stack: {
@@ -239,7 +239,7 @@ export class Task<
       this.destroyHandlers.push(() => clearTimeout(timeoutId));
       return val;
     });
-    return this;
+    return this.castThis<T, ReqENV, ProvEnv, Err | TimeOutError>();
   }
 
   protected kill(reason: Error) {
@@ -329,7 +329,7 @@ export class Task<
    * @param _
    * @returns
    */
-  public run<R = Async extends true ? Promise<T> : T | Error>(
+  public run<R = Async extends true ? Promise<T> : T | Err>(
     ..._: ProvEnv extends ReqENV
       ? EmptyArray
       : [Errors: { [k in keyof DiffErr<ReqENV, ProvEnv>]: DiffErr<ReqENV, ProvEnv>[k] }]

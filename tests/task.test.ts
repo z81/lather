@@ -328,10 +328,10 @@ makeTest(
   async () =>
     Task.structPar({
       a: Task.succeed(1)
-        .delay(12)
+        .delay(22)
         .map(() => Date.now()),
       b: Task.succeed(2)
-        .delay(12)
+        .delay(22)
         .map(() => Date.now()),
     })
       .map(({ a, b }) => a - b)
@@ -630,3 +630,6 @@ const dd: Task<number, {}, {}, unknown, false> = d;
 
 const e = Task.succeed(5).mapTo(5);
 const ee: Task<number, {}, {}, unknown, false> = c;
+
+const f = Task.succeed(5).mapTo(5).timeout(5).run();
+const ff: Task<number, {}, {}, unknown, false> = c;
