@@ -1,3 +1,7 @@
+export class TimeOutError extends Error {
+  public readonly _tag = "TimeOutError";
+}
+
 type EmptyArray = unknown[] & { length: 0 };
 
 type DiffErr<RE, PD> = {
@@ -43,6 +47,8 @@ export class Task<
   protected branches: [any, any] = [undefined, undefined];
   protected id = taskInstancesCount++;
   protected destroyHandlers: Function[] = [];
+  protected rejectMain: (reason?: any) => void = () => void 0;
+  protected isKilled = false;
 
   private constructor() {}
 
@@ -59,7 +65,31 @@ export class Task<
     restore = false,
     stopMain = false
   ) {
-    this.stack.push({ fn, branch, repeat, name, restore, stop: stopMain });
+    this.stack.push({
+      fn /*: (val: T) => {
+        const r = fn(val);
+        if (this.isKilled) {
+          throw this.branches[TaskBranches.Fail];
+        }
+
+        if (this.isKilled && r instanceof Promise) {
+          return r.then((v) => {
+            if (this.isKilled) {
+              return Promise.reject(0).catch(() => this.branches[TaskBranches.Fail] ?? v);
+            }
+
+            return v;
+          });
+        }
+
+        return r;
+      }*/,
+      branch,
+      repeat,
+      name,
+      restore,
+      stop: stopMain,
+    });
 
     return this.castThis<
       R extends Promise<infer P> ? P : R,
@@ -97,7 +127,7 @@ export class Task<
     fn: (value: T) => Task<NT, NRE, NPE, NER, A>
   ) {
     const self = this.castThis<NT, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
-    return self.addStack("chain", (val: T) => fn(val).provide<any>(self.env).runPromise());
+    return self.addStack("chain", (val: T) => fn(val).provide<any>(self.env).run());
   }
 
   /**
@@ -203,6 +233,26 @@ export class Task<
     ).castThis<T>();
   }
 
+  public timeout(time: number) {
+    this.addStack("timeout", (val: T) => {
+      const timeoutId = setTimeout(() => this.kill(new TimeOutError()), time);
+      this.destroyHandlers.push(() => clearTimeout(timeoutId));
+      return val;
+    });
+    return this;
+  }
+
+  protected kill(reason: Error) {
+    this.branches[TaskBranches.Fail] = reason;
+    this.branchId = TaskBranches.Fail;
+    this.isKilled = true;
+    this.rejectMain(reason);
+  }
+
+  public die(reason: Error) {
+    this.addStack("die", () => this.kill(reason));
+  }
+
   /**
    * Required dependencies
    * @returns
@@ -274,74 +324,12 @@ export class Task<
     }
   }
 
-  // private runPartial(i = 0) {
-  //   if (i === this.stack.length) {
-  //     return this.branches[this.branchId];
-  //   }
-
-  //   const item = this.stack[i];
-
-  //   try {
-  //     if (item.branch !== this.branchId) {
-  //       return;
-  //     }
-
-  //     const value = this.branches[this.branchId];
-
-  //     if (item.repeat && i + 1 < this.stack.length) {
-  //       const [left, right] = this.branches;
-
-  //       let prevBranch = this.branchId;
-  //       while (item.repeat(value)) {
-  //         if (item.restore) {
-  //           prevBranch = this.branchId;
-  //           this.branchId = item.branch;
-  //         }
-
-  //         this.branches[this.branchId] = item.fn(value);
-  //         this.runPartial(i + 1);
-
-  //         if (!item.stop) {
-  //           this.branches[0] = left;
-  //           this.branches[1] = right;
-  //         }
-  //       }
-
-  //       if (!item.stop) {
-  //         this.runPartial(i + 1);
-  //       }
-  //     } else {
-  //       const result = item.fn(value);
-  //       if (result instanceof Promise) {
-  //         this.branches[this.branchId] = result.then(
-  //           (data) => {
-  //             this.branches[this.branchId] = data;
-  //             this.runPartial(i + 1);
-  //             return this.branches[this.branchId];
-  //           },
-  //           (err) => {
-  //             this.branchId = TaskBranches.Fail;
-  //             this.branches[this.branchId] = err;
-  //             return err;
-  //           }
-  //         );
-  //       } else {
-  //         this.branches[this.branchId] = result;
-  //         this.runPartial(i + 1);
-  //       }
-  //     }
-  //   } catch (e) {
-  //     this.branchId = TaskBranches.Fail;
-  //     this.branches[this.branchId] = e;
-  //   }
-  // }
-
   /**
    * Run task, return promise or pure value
    * @param _
    * @returns
    */
-  public runPromise<R = Async extends true ? Promise<T> : T | Error>(
+  public run<R = Async extends true ? Promise<T> : T | Error>(
     ..._: ProvEnv extends ReqENV
       ? EmptyArray
       : [Errors: { [k in keyof DiffErr<ReqENV, ProvEnv>]: DiffErr<ReqENV, ProvEnv>[k] }]
@@ -350,10 +338,11 @@ export class Task<
 
     let result = this.branches[this.branchId];
 
+    // add stack
     if (result instanceof Promise) {
       result = result.finally(() => {
         this.ensureAll();
-      }) as any;
+      });
     } else {
       this.ensureAll();
     }
@@ -364,6 +353,13 @@ export class Task<
       }
 
       return result instanceof Error ? result : (new Error(result) as any);
+    }
+
+    if (result instanceof Promise) {
+      return new Promise((res, rej) => {
+        result.then(res).catch(rej);
+        this.rejectMain = rej;
+      }) as any;
     }
 
     return result;
@@ -470,7 +466,7 @@ export class Task<
   >(struct: T): Task<R> {
     return new Task().switchBranch(TaskBranches.Success).addStack("structPar", async () => {
       return Object.fromEntries(
-        await Promise.all(Object.entries(struct).map(async ([name, task]) => [name, await task.runPromise()]))
+        await Promise.all(Object.entries(struct).map(async ([name, task]) => [name, await task.run()]))
       );
     });
   }
@@ -489,15 +485,15 @@ export class Task<
       const res = Object.entries(struct).reduce((val, [name, task]) => {
         if (val instanceof Promise) {
           return val.then(async () => {
-            obj[name] = await task.runPromise();
+            obj[name] = await task.run();
           });
         }
 
-        const res = task.runPromise();
+        const res = task.run();
 
         if (res instanceof Promise) {
           return res.then(async () => {
-            obj[name] = await task.runPromise();
+            obj[name] = await task.run();
           });
         }
 
