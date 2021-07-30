@@ -63,32 +63,15 @@ export class Task<
     branch = TaskBranches.Success,
     repeat: ((val: T) => boolean) | undefined = undefined,
     restore = false,
-    stopMain = false
+    stop = false
   ) {
     this.stack.push({
-      fn /*: (val: T) => {
-        const r = fn(val);
-        if (this.isKilled) {
-          throw this.branches[TaskBranches.Fail];
-        }
-
-        if (this.isKilled && r instanceof Promise) {
-          return r.then((v) => {
-            if (this.isKilled) {
-              return Promise.reject(0).catch(() => this.branches[TaskBranches.Fail] ?? v);
-            }
-
-            return v;
-          });
-        }
-
-        return r;
-      }*/,
+      fn,
       branch,
       repeat,
       name,
       restore,
-      stop: stopMain,
+      stop,
     });
 
     return this.castThis<
@@ -338,9 +321,12 @@ export class Task<
 
     let result = this.branches[this.branchId];
 
-    // add stack
     if (result instanceof Promise) {
-      result = result.finally(() => {
+      result = new Promise((res, rej) => {
+        result.then(res).catch(rej);
+
+        this.rejectMain = rej;
+      }).finally(() => {
         this.ensureAll();
       });
     } else {
@@ -353,13 +339,6 @@ export class Task<
       }
 
       return result instanceof Error ? result : (new Error(result) as any);
-    }
-
-    if (result instanceof Promise) {
-      return new Promise((res, rej) => {
-        result.then(res).catch(rej);
-        this.rejectMain = rej;
-      }) as any;
     }
 
     return result;

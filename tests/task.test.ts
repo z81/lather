@@ -525,8 +525,6 @@ makeTest(
 //   (r) => r.toBeInstanceOf(TimeOutError)
 // );
 
-// Todo: catch + mapError
-
 makeTest(
   async () => {
     try {
@@ -562,6 +560,22 @@ makeTest(
     }
   },
   (r) => r.toBe(0)
+);
+
+makeTest(
+  async (fn) => {
+    try {
+      await Task.succeed(0)
+        .ensure(fn)
+        .timeout(1)
+        .delay(2000)
+        .map(() => 1)
+        .run();
+    } catch (e) {
+      return fn.mock.calls.length;
+    }
+  },
+  (r) => r.toBe(1)
 );
 
 makeTest(
