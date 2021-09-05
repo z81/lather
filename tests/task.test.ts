@@ -194,8 +194,10 @@ makeTest(
 
 // repeat
 makeTest(
-  async (fn) => Task.succeed("6").repeat(5).tap(fn).run().toString() && fn.mock.calls.length,
-  (r) => r.toBe(6)
+  async (fn) =>
+    Task.succeed("6").repeat(5).tap(fn).run().toString() &&
+    fn.mock.calls.length,
+  (r) => r.toBe(5)
 );
 
 let count = 0;
@@ -206,11 +208,13 @@ makeTest(
       .tap(fn)
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(5)
+  (r) => r.toBe(4)
 );
 
 makeTest(
-  async (fn) => Task.succeed("6").repeat(2).repeat(2).tap(fn).run().toString() && fn.mock.calls.length,
+  async (fn) =>
+    Task.succeed("6").repeat(2).repeat(2).tap(fn).run().toString() &&
+    fn.mock.calls.length,
   (r) => r.toBe(5)
 );
 
@@ -222,7 +226,7 @@ makeTest(
       .tap(fn)
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(3)
+  (r) => r.toBe(2)
 );
 
 makeTest(
@@ -233,7 +237,7 @@ makeTest(
       .tap(fn)
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(6)
+  (r) => r.toBe(4)
 );
 
 makeTest(
@@ -415,12 +419,14 @@ makeTest(
 );
 
 makeTest(
-  async (fn) => (await Task.succeed(4).ensure(fn).delay(5).run()) && fn.mock.calls.length,
+  async (fn) =>
+    (await Task.succeed(4).ensure(fn).delay(5).run()) && fn.mock.calls.length,
   (r) => r.toEqual(1)
 );
 
 makeTest(
-  async (fn) => (await Task.succeed(4).delay(5).ensure(fn).run()) && fn.mock.calls.length,
+  async (fn) =>
+    (await Task.succeed(4).delay(5).ensure(fn).run()) && fn.mock.calls.length,
   (r) => r.toEqual(1)
 );
 
@@ -527,6 +533,49 @@ makeTest(
 
 makeTest(
   async () => {
+    let i = 0;
+    try {
+      await Task.succeed("google")
+        .map((q) => new Promise((res, rej) => rej(0)))
+        .mapError((e) => "3")
+        .run();
+    } catch (e) {
+      return e;
+    }
+  },
+  (r) => r.toBe("3")
+);
+
+makeTest(
+  async () => {
+    let callCount = 0;
+    const getPage = (url: string) => {
+      let id = ++callCount;
+      return new Promise<string>(
+        (res, rej) =>
+          setTimeout(() => {
+            if (id % 2 !== 0) {
+              rej(`Error: 500 - ${url}`);
+            } else {
+              res(`<html>${url}<html>`);
+            }
+          }, 100) // Math.random() * 100 + (id % 10 ? 100000 : 1))
+      );
+    };
+    try {
+      return await Task.succeed("google")
+        .map(getPage)
+        .retryWhile(() => true)
+        .run();
+    } catch (e) {
+      return e;
+    }
+  },
+  (r) => r.toBe("<html>google<html>")
+);
+
+makeTest(
+  async () => {
     try {
       await Task.succeed(0).timeout(1).delay(2000).run();
     } catch (e) {
@@ -581,7 +630,13 @@ makeTest(
 makeTest(
   async (fn) => {
     try {
-      await Task.succeed(0).timeout(50).delay(5).map(fn).delay(500).map(fn).run();
+      await Task.succeed(0)
+        .timeout(50)
+        .delay(5)
+        .map(fn)
+        .delay(500)
+        .map(fn)
+        .run();
     } catch (e) {
       return fn.mock.calls.length;
     }

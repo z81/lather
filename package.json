@@ -7,7 +7,10 @@
     "build": "esbuild src/index.ts --bundle --platform=node --minify --sourcemap=external --outfile=dist/index.js",
     "watch": "esbuild src/index.ts --bundle --watch --sourcemap=external --outfile=dist/index.js",
     "dev": "concurrently \"yarn watch\" \"nodemon dist/index.js\"",
+    "debug": "concurrently \"yarn watch\" \"nodemon --inspect=0.0.0.0 dist/index.js\"",
     "test": "jest",
+    "example:watch": "esbuild src/examples/a/index.ts --bundle --watch --sourcemap=external --outfile=dist/example.js",
+    "example": "concurrently \"yarn example:watch\" \"nodemon dist/example.js\"",
     "test:watch": "jest --watchAll --collectCoverage",
     "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal"
   },

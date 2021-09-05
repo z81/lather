@@ -5,7 +5,11 @@ export class TimeOutError extends Error {
 type EmptyArray = unknown[] & { length: 0 };
 
 type DiffErr<RE, PD> = {
-  [k in keyof RE as k extends keyof PD ? (PD[k] extends RE[k] ? never : k) : k]: {
+  [k in keyof RE as k extends keyof PD
+    ? PD[k] extends RE[k]
+      ? never
+      : k
+    : k]: {
     Error: "Incorrect dependencies";
     Field: k;
     RequiredValue: RE[k];
@@ -20,6 +24,8 @@ enum TaskBranches {
 }
 
 type SomeFunction = (...args: any[]) => any;
+
+const identity = <T>(t: T) => t;
 
 let taskInstancesCount = 0;
 
@@ -37,7 +43,7 @@ export class Task<
   protected stack: {
     name: string;
     fn: Function;
-    branch: TaskBranches;
+    branch?: TaskBranches;
     repeat?: (val: T) => boolean;
     restore: boolean;
     stop?: boolean;
@@ -47,13 +53,19 @@ export class Task<
   protected branches: [any, any] = [undefined, undefined];
   protected id = taskInstancesCount++;
   protected destroyHandlers: Function[] = [];
-  protected rejectMain: (reason?: any) => void = () => void 0;
+  protected rejectMain?: (reason?: any) => void;
   protected isKilled = false;
 
   private constructor() {}
 
   // Mutable for performance
-  protected castThis<R, E = ReqENV, P = ProvEnv, ER = Err, A extends boolean = Async>() {
+  protected castThis<
+    R,
+    E = ReqENV,
+    P = ProvEnv,
+    ER = Err,
+    A extends boolean = Async
+  >() {
     return this as any as Task<R, E, P, ER, A>;
   }
 
@@ -98,7 +110,13 @@ export class Task<
    * @returns
    */
   public mapError<NE>(fn: (value: Err) => NE) {
-    return this.addStack("mapError", fn, TaskBranches.Fail).castThis<T, ReqENV, ProvEnv, NE, Async>();
+    return this.addStack("mapError", fn, TaskBranches.Fail).castThis<
+      T,
+      ReqENV,
+      ProvEnv,
+      NE,
+      Async
+    >();
   }
 
   /**
@@ -106,11 +124,17 @@ export class Task<
    * @param fn
    * @returns
    */
-  public chain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(
-    fn: (value: T) => Task<NT, NRE, NPE, NER, A>
-  ) {
-    const self = this.castThis<NT, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
-    return self.addStack("chain", (val: T) => fn(val).provide<any>(self.env).run());
+  public chain<
+    NT,
+    NRE,
+    NPE,
+    NER,
+    A extends boolean,
+    NA extends boolean = Async extends true ? true : A
+  >(fn: (value: T) => Task<NT, NRE, NPE, NER, A>) {
+    return this.addStack("chain", (val: T) =>
+      fn(val).provide<any>(this.env).run()
+    ).castThis<NT, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
   }
 
   /**
@@ -140,7 +164,12 @@ export class Task<
    * @returns
    */
   public repeatWhile<U extends (value: T) => boolean>(fn: U) {
-    return this.addStack("repeatWhile", (t) => t, TaskBranches.Success, fn);
+    return this.addStack(
+      "repeatWhile",
+      identity,
+      TaskBranches.Success,
+      fn
+    ).castThis<T>();
   }
 
   /**
@@ -167,7 +196,7 @@ export class Task<
     let next: IteratorResult<unknown, any>;
 
     return this.addStack(
-      "sequenceFrom",
+      "sequenceGen",
       (value: T) => {
         if (!gen) {
           gen = fn(value);
@@ -208,8 +237,8 @@ export class Task<
     let count = 0;
     return this.addStack(
       "retryWhile",
-      (t) => t,
-      TaskBranches.Success,
+      identity,
+      undefined,
       () => (count++ === 0 || this.branchId === TaskBranches.Fail) && fn(),
       true,
       true
@@ -229,11 +258,7 @@ export class Task<
     this.branches[TaskBranches.Fail] = reason;
     this.branchId = TaskBranches.Fail;
     this.isKilled = true;
-    this.rejectMain(reason);
-  }
-
-  public die(reason: Error) {
-    this.addStack("die", () => this.kill(reason));
+    this.rejectMain?.(reason);
   }
 
   /**
@@ -241,7 +266,10 @@ export class Task<
    * @returns
    */
   public access<E>() {
-    return this.addStack("access", () => this.env).castThis<E & ReqENV, E & ReqENV>();
+    return this.addStack("access", () => this.env).castThis<
+      E & ReqENV,
+      E & ReqENV
+    >();
   }
 
   /**
@@ -267,7 +295,7 @@ export class Task<
       const item = this.stack[i];
 
       try {
-        if (item.branch !== this.branchId) {
+        if (item.branch !== undefined && item.branch !== this.branchId) {
           continue;
         }
 
@@ -277,34 +305,101 @@ export class Task<
           const [left, right] = this.branches;
 
           let prevBranch = this.branchId;
-          while (item.repeat(value)) {
+
+          const r = (): any => {
+            const isRepeat = item.repeat?.(value) ?? false;
+            if (!isRepeat) {
+              if (item.restore && start === 0) {
+                this.branchId = prevBranch;
+              }
+              // if (item.stop) {
+              //   return this.branches[this.branchId];
+              // }
+
+              return this.branches[this.branchId];
+            }
+
             if (item.restore) {
               prevBranch = this.branchId;
-              this.branchId = item.branch;
+              this.branchId = item.branch ?? this.branchId;
             }
 
             this.branches[this.branchId] = item.fn(value);
-            this.runPartial(i + 1);
+
+            const res: any = this.runPartial(i + 1);
 
             if (!item.stop) {
               this.branches[0] = left;
               this.branches[1] = right;
             }
-          }
-          if (item.restore && start === 0) {
-            this.branchId = prevBranch;
-          }
-          if (item.stop) {
-            return;
-          }
+
+            if (res instanceof Promise) {
+              return res
+                .then((v) => {
+                  return r();
+                })
+                .catch((e) => {
+                  return r();
+                });
+            } else {
+              return r();
+            }
+          };
+
+          return r();
+
+          // while (item.repeat(value)) {
+          //   if (item.restore) {
+          //     prevBranch = this.branchId;
+          //     this.branchId = item.branch;
+          //   }
+
+          //   this.branches[this.branchId] = item.fn(value);
+
+          //   this.runPartial(i + 1);
+
+          //   if (!item.stop) {
+          //     this.branches[0] = left;
+          //     this.branches[1] = right;
+          //   }
+          // }
+          // if (item.restore && start === 0) {
+          //   this.branchId = prevBranch;
+          // }
+          // if (item.stop) {
+          //   return this.branches[this.branchId];
+          // }
         } else {
-          this.branches[this.branchId] = value instanceof Promise ? value.then(item.fn as any) : item.fn(value);
+          this.branches[this.branchId] =
+            value instanceof Promise
+              ? value.then(item.fn as any)
+              : item.fn(value);
+
+          if (this.branches[this.branchId] instanceof Promise) {
+            this.branches[this.branchId] = this.branches[this.branchId].then(
+              (d: any) => {
+                this.branches[this.branchId] = d;
+                return this.runPartial(i + 1);
+              },
+              (err: any) => {
+                this.branchId = TaskBranches.Fail;
+                this.branches[this.branchId] = err;
+
+                const t = this.runPartial(i + 1);
+                return t instanceof Promise ? t : this.branches[this.branchId];
+              }
+            );
+
+            return this.branches[this.branchId];
+          }
         }
       } catch (e) {
         this.branchId = TaskBranches.Fail;
         this.branches[this.branchId] = e;
       }
     }
+
+    return this.branches[this.branchId];
   }
 
   /**
@@ -315,20 +410,38 @@ export class Task<
   public run<R = Async extends true ? Promise<T> : T | Err>(
     ..._: ProvEnv extends ReqENV
       ? EmptyArray
-      : [Errors: { [k in keyof DiffErr<ReqENV, ProvEnv>]: DiffErr<ReqENV, ProvEnv>[k] }]
+      : [
+          Errors: {
+            [k in keyof DiffErr<ReqENV, ProvEnv>]: DiffErr<ReqENV, ProvEnv>[k];
+          }
+        ]
   ): R {
-    this.runPartial();
+    const q = this.runPartial();
 
     let result = this.branches[this.branchId];
 
+    // result
+    //   .then((d) => console.log("res then", d))
+    //   .catch((err) => console.log("res catch", err));
+    // console.log("res", result);
+
     if (result instanceof Promise) {
+      let r = result;
       result = new Promise((res, rej) => {
-        result.then(res).catch(rej);
+        r.then((r) => {
+          if (this.branchId === TaskBranches.Fail) {
+            rej(r);
+          } else {
+            res(r);
+          }
+        }).catch(rej);
 
         this.rejectMain = rej;
-      }).finally(() => {
-        this.ensureAll();
-      });
+      })
+        // .catch((e) => e)
+        .finally(() => {
+          this.ensureAll();
+        });
     } else {
       this.ensureAll();
     }
@@ -393,7 +506,9 @@ export class Task<
    */
   public delay(time: number) {
     return this.addStack("delay", (value: T) => {
-      return new Promise<T>((resolve) => setTimeout(() => resolve(value), time));
+      return new Promise<T>((resolve) =>
+        setTimeout(() => resolve(value), time)
+      );
     });
   }
 
@@ -410,7 +525,9 @@ export class Task<
    * @returns
    */
   static succeed<T>(value: T) {
-    return new Task().switchBranch(TaskBranches.Success).addStack("succeed", () => value);
+    return new Task()
+      .switchBranch(TaskBranches.Success)
+      .addStack("succeed", () => value);
   }
 
   /**
@@ -419,7 +536,10 @@ export class Task<
    * @returns
    */
   static sequenceGen<T>(fn: () => Generator<T, void, any>) {
-    return new Task().switchBranch(TaskBranches.Success).sequenceGen(fn).castThis<T>();
+    return new Task()
+      .switchBranch(TaskBranches.Success)
+      .sequenceGen(fn)
+      .castThis<T>();
   }
 
   /**
@@ -443,11 +563,18 @@ export class Task<
     T extends Record<string, Task<any>>,
     R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
   >(struct: T): Task<R> {
-    return new Task().switchBranch(TaskBranches.Success).addStack("structPar", async () => {
-      return Object.fromEntries(
-        await Promise.all(Object.entries(struct).map(async ([name, task]) => [name, await task.run()]))
-      );
-    });
+    return new Task()
+      .switchBranch(TaskBranches.Success)
+      .addStack("structPar", async () => {
+        return Object.fromEntries(
+          await Promise.all(
+            Object.entries(struct).map(async ([name, task]) => [
+              name,
+              await task.run(),
+            ])
+          )
+        );
+      });
   }
 
   /**
@@ -459,28 +586,30 @@ export class Task<
     T extends Record<string, Task<any>>,
     R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
   >(struct: T): Task<R> {
-    return new Task().switchBranch(TaskBranches.Success).addStack("struct", () => {
-      const obj: Record<string, T> = {};
-      const res = Object.entries(struct).reduce((val, [name, task]) => {
-        if (val instanceof Promise) {
-          return val.then(async () => {
-            obj[name] = await task.run();
-          });
-        }
+    return new Task()
+      .switchBranch(TaskBranches.Success)
+      .addStack("struct", () => {
+        const obj: Record<string, T> = {};
+        const res = Object.entries(struct).reduce((val, [name, task]) => {
+          if (val instanceof Promise) {
+            return val.then(async () => {
+              obj[name] = await task.run();
+            });
+          }
 
-        const res = task.run();
+          const res = task.run();
 
-        if (res instanceof Promise) {
-          return res.then(async () => {
-            obj[name] = await task.run();
-          });
-        }
+          if (res instanceof Promise) {
+            return res.then(async () => {
+              obj[name] = await task.run();
+            });
+          }
 
-        obj[name] = res;
-        return res;
-      }, {});
-      return res instanceof Promise ? (res.then(() => obj) as any) : obj;
-    }) as any;
+          obj[name] = res;
+          return res;
+        }, {});
+        return res instanceof Promise ? (res.then(() => obj) as any) : obj;
+      }) as any;
   }
 
   /**
