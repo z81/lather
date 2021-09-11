@@ -1,11 +1,6 @@
 import { Fail, Result, Task, TimeOutError } from "../src/task";
 import { makeTestRunner } from "./configure";
 
-const t = Task.sequenceFrom(new Set([1, 2, 3]))
-  .reduce((a, b) => a + b, 0)
-  .runUnsafe();
-console.log(t);
-
 const makeTest = makeTestRunner(__filename);
 
 makeTest(

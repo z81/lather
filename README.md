@@ -133,9 +133,18 @@ console.log(t);
 const t = Task.sequenceFrom(new Set([1, 2, 3]))
   .reduce((a, b) => a + b, 0)
   .runUnsafe();
-console.log(t);
+console.log(t); // 6
 ```
-
+```ts
+const t = Task.sequenceGen(function* () {
+  yield 1;
+  yield 2;
+  yield 3;
+})
+  .reduce((a, b) => a + b, 0)
+  .runUnsafe();
+console.log(t); // 6
+```
 
 map
 mapError
