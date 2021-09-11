@@ -1,4 +1,141 @@
-ERROR = E | DATA = D
+```ts
+console.log('Sync task:', Task.succeed(1).map(n => n * 2).runUnsafe())
+// Sync task: 4
+```
+
+```ts
+console.log('Async task:', await Task.succeed(1).map(n => n * 2).delay(1000).runUnsafe())
+// Async task: 4     after 1000ms
+```
+
+```ts
+console.log('Sync safe task:', Task.succeed(1).map(n => n * 2).run())
+// Sync safe task: Result { value: 4 }
+```
+
+```ts
+try {
+  console.log('Sync unsafe task:', Task.succeed(1).map(n => {throw new Error()}).runUnsafe())
+} catch(e) {
+  console.error("error", e)
+}
+// error Error
+```
+```ts
+console.log('Sync safe task:', Task.succeed(1).map(n => {throw new Error()}).run()))
+// Sync safe task: Fail {error: Error}
+```
+
+
+```ts
+let i = 0;
+const r = Task.succeed(1).map(n => {
+  if (++i < 3) {
+    throw "Error i < 3!!!"
+  }
+  return i;
+}).retryWhile(() => true).run() // or .retryWhile(Retry.always)
+// r = 4
+```
+
+```ts
+let i = 0;
+const r = Task.succeed(1).map(n => {
+  if (++i < 3) {
+    throw "Error i < 3!!!"
+  }
+  return i;
+}).retryWhile(Retry.times(7)).run()
+// r = 4
+```
+
+```ts
+Task.succeed(1).access<{logger: (msg: string) => void}>().run()
+//                                          type error----^^^^^
+/*                                 ... {
+                                    logger: {
+                                        Error: "Incorrect dependencies";
+                                        Field: "logger";
+                                        RequiredValue: (msg: string) => void;
+                                        ExceptedValue: undefined;
+                                    }
+                                  }...
+*/
+```
+
+```ts
+const serviceWithLogging = Task.succeed(1)
+  .access<{ logger: (msg: string) => void }>()
+  .map(({ logger }) => logger("Hi !"));
+
+serviceWithLogging.provide({ logger: console.log }).run();
+// Hi!
+```
+
+```ts
+const serviceWithLogging = Task.succeed(1)
+  .access<{ logger: (msg: string) => void }>()
+  .map(({ logger }) => logger("Hi !"));
+
+const app = serviceWithLogging
+  .provide({ logger: console.log })
+
+// override for test
+app.provide({ logger: (msg: string) => mock("Log", msg) })
+  .run();
+// mock called with ["Log", "Hi!"]
+```
+
+
+```ts
+let i = 0;
+const r = Task.succeed(1).map(n => {
+  if (++i < 3) {
+    throw "Error i < 3!!!"
+  }
+  return i;
+}).mapError(e => `Omg! ${e}`).run()
+// r = Fail {value: "Omg! Error i < 3!!!"}
+```
+
+```ts
+const openDb = () => console.log("open db");
+const closeDb = () => console.log("close db");
+const writeDb = () => console.log("write db");
+
+Task.succeed(1)
+  .map(openDb)
+  .ensure(closeDb) // run after end
+  .map(writeDb)
+  .map((n) => {
+    throw "Error ";
+  })
+  .run();
+// open db
+// write db
+// close db
+```
+```ts
+const t = Task.sequenceFrom([1, 2, 3]) // any iterable value
+  .reduce((a, b) => a + b, 0)
+  .runUnsafe();
+console.log(t);
+```
+
+```ts
+const t = Task.sequenceFrom("test")
+  .reduce((a, b) => `${b}/${a}`, "")
+  .runUnsafe();
+console.log(t);
+//  /t/e/s/t
+```
+```ts
+const t = Task.sequenceFrom(new Set([1, 2, 3]))
+  .reduce((a, b) => a + b, 0)
+  .runUnsafe();
+console.log(t);
+```
+
 
 map
 mapError
@@ -14,7 +151,7 @@ timeout
 access
 provide
 collectWhen
+collectAll
 ensureAll
 ensure
 delay
-flat

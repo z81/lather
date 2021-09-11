@@ -1,89 +1,78 @@
-// import { Task } from "../..";
+import { Task } from "../../task";
 
-/*
-map, mapError, mapTo, tap, chain 1 -> 1
-repeatWhile, repeat
-sequenceGen
-reduce T
-retryWhile -> err
-timeout -> err
-// access, provide
-collectWhen T -> T[]
-ensureAll
-ensure
-delay
+// Mock http request
 
+let callCount = 0;
+const getPage = (url: string) => {
+  let id = ++callCount;
+  return new Promise<string>((res, rej) =>
+    setTimeout(
+      () => {
+        if (id % 2 !== 0) {
+          // console.log(
+          //   "\x1b[31m%s\x1b[0m",
+          //   `getPage[reject]  #${id} Error: 500 - ${url}`
+          // );
 
-*/
+          rej(`Error: 500 - ${url}`);
+        } else {
+          // console.log(
+          //   "\x1b[32m%s\x1b[0m",
+          //   `getPage[resolve] #${id} <html>#{${id}} hello from ${url}<html>`
+          // );
 
-// // Mock http request
+          res(`<html>#{${id}} hello from ${url}<html>`);
+        }
+      },
+      id % 10 === 0 ? 1000 : 10
+    )
+  );
+};
 
-// let callCount = 0;
-// const getPage = (url: string) => {
-//   let id = ++callCount;
-//   return new Promise<string>(
-//     (res, rej) =>
-//       setTimeout(() => {
-//         if (id % 2 !== 0) {
-//           rej(`Error: 500 - ${url}`);
-//         } else {
-//           res(`<html>#{${id}} hello from ${url}<html>`);
-//         }
-//       }, 100) // Math.random() * 100 + (id % 10 ? 100000 : 1))
-//   );
-// };
+const urlPrefixes = [
+  "google",
+  "fb",
+  "fbi",
+  "instagram",
+  "ford",
+  "csi",
+  "twitter",
+  "teasl",
+  "twitch",
+  "gmail",
+  "apple",
+  "twillo",
+  "yahoo",
+  "github",
+  "gitlab",
+  "link",
+  "run",
+  "check",
+  "test",
+  "todo",
+  "trello",
+];
 
-// const urlPrefixes = [
-//   "google",
-//   "fb",
-//   "fbi",
-//   "instagram",
-//   "ford",
-//   "csi",
-//   "twitter",
-//   "teasl",
-//   "twitch",
-//   "gmail",
-//   "apple",
-//   "twillo",
-//   "yahoo",
-//   "github",
-//   "gitlab",
-//   "link",
-//   "run",
-//   "check",
-//   "test",
-//   "todo",
-//   "trello",
-// ];
+const domainZones = ["com", "space", "cat"];
 
-// const domainZones = ["com", "space", "cat"];
+const urls = urlPrefixes.flatMap((pref) =>
+  domainZones.map((dom) => `${pref}.${dom}`)
+);
 
-// const urls = urlPrefixes.flatMap((pref) => domainZones.map((dom) => `${pref}.${dom}`));
+const getPages = (urls: string[]) =>
+  Task.sequenceFrom(urls)
+    .timeout(50)
+    .map(getPage)
+    .mapError((e) => console.error(e?.message ?? e))
+    .retryWhile(() => true)
+    .collectAll()
+    .run();
 
-// const getPages = (urls: string[]) =>
-//   Task.succeed(urls[0])
-//     // .timeout(150)
-//     .map(getPage)
-//     .tap((t) => console.log("tap", t))
-//     // .mapError((e) => console.error("err", e))
-//     // .retryWhile(() => true)
-//     // .collectAll()
-//     .run(); //
-// // Task.sequenceFrom(urls)
-// //   // .timeout(150)
-// //   .map(getPage)
-// //   .tap((t) => console.log("tap", t))
-// //   // .mapError((e) => console.error("err", e))
-// //   .retryWhile(() => true)
-// //   .collectAll()
-// //   .run(); //
-
-// (async () => {
-//   try {
-//     const res = await getPages(urls);
-//     console.log("Res", res);
-//   } catch (e) {
-//     console.log("pages", e);
-//   }
-// })();
+(async () => {
+  try {
+    const res = await getPages(urls);
+    console.log("Res", res);
+  } catch (e) {
+    console.log("pages", e);
+  }
+})();
