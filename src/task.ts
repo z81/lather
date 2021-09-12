@@ -584,6 +584,16 @@ export class Task<
     return this.castThis<R>();
   }
 
+  public fromCallback<T>(fn: (cb: (value: T) => void) => unknown) {
+    this.runtime.then({
+      fn: () => new Promise<T>((res) => fn(res)),
+      name: "fromCallback",
+      branch: TaskBranches.Success,
+    });
+
+    return this.castThis<T>();
+  }
+
   /**
    * Create succeed task from object with task
    * @param struct
@@ -600,5 +610,13 @@ export class Task<
    */
   static fail<ERR>(err: ERR) {
     return new Task().fail(err);
+  }
+
+  static get empty() {
+    return new Task().succeed(undefined);
+  }
+
+  static fromCallback<T>(fn: (cb: (value: T) => void) => unknown) {
+    return new Task().fromCallback(fn);
   }
 }

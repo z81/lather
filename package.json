@@ -9,8 +9,10 @@
     "dev": "concurrently \"yarn watch\" \"nodemon dist/index.js\"",
     "debug": "concurrently \"yarn watch\" \"nodemon --inspect=0.0.0.0 dist/index.js\"",
     "test": "jest",
-    "example:watch": "esbuild src/examples/a/index.ts --bundle --watch --sourcemap=external --outfile=dist/example.js",
-    "example": "concurrently \"yarn example:watch\" \"nodemon dist/example.js\"",
+    "example_pages:watch": "esbuild src/examples/pages/index.ts --bundle --watch --sourcemap=external --outfile=dist/pages_example.js",
+    "example:pages": "concurrently \"yarn example_pages:watch\" \"nodemon dist/pages_example.js\"",
+    "example_module:watch": "esbuild src/examples/module/index.ts --bundle --platform=node --watch --sourcemap=external --outfile=dist/module_example.js",
+    "example:module": "concurrently \"yarn example_module:watch\" \"nodemon dist/module_example.js\"",
     "test:watch": "jest --watchAll --collectCoverage",
     "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal"
   },
@@ -40,6 +42,7 @@
     "jest": "^27.0.6",
     "nodemon": "^2.0.9",
     "typedoc": "^0.21.4",
-    "typescript": "^4.3.4"
+    "typescript": "^4.3.4",
+    "zod": "^3.8.2"
   }
 }
