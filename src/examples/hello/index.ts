@@ -34,21 +34,11 @@ const consumer2 = Task.empty
     Task.sequenceFromIterable(queue).tap((msg) => console.log(`@2 ${msg}`, msg))
   );
 
-const consumer3 = Task.empty
-  .access<{ queue: Queue<string> }>()
-  .chain(({ queue }) =>
-    Task.sequenceGen(async function* () {
-      yield* queue;
-    })
-  )
-  .tap((msg) => console.log(`@3 ${msg}`));
-
 Task.empty
   .structPar({
     server,
     consumer1,
     consumer2,
-    consumer3,
   })
   .provide({
     queue: messageQueue,
