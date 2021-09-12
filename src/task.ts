@@ -124,6 +124,31 @@ export class Task<
     return this.castThis<NT, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
   }
 
+  public tapChain<
+    NT,
+    NRE,
+    NPE,
+    NER,
+    A extends boolean,
+    NA extends boolean = Async extends true ? true : A
+  >(fn: (value: T) => Task<NT, NRE, NPE, NER, A>) {
+    this.runtime.then({
+      fn: (val: T) =>
+        callHandled(
+          () => fn(val).provide<any>(this.env).runUnsafe(),
+          [],
+          () => val,
+          (err) => {
+            throw err;
+          }
+        ),
+      name: "tapChain",
+      branch: TaskBranches.Success,
+    });
+
+    return this.castThis<T, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
+  }
+
   /**
    * Map to value
    * @param value
