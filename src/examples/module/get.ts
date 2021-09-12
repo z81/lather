@@ -4,7 +4,7 @@ import https from "https";
 export const get = (url: string) =>
   //              could be override for tests
   Task.empty.access<{ https: typeof https }>().chain(({ https }) =>
-    Task.empty.fromCallback<string>((cb) => {
+    Task.fromCallback<string>((cb) => {
       https.get(url, (res) => {
         let data = "";
         res.on("data", (chunk) => (data += chunk));

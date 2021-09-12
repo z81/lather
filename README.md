@@ -154,6 +154,8 @@ chain
 repeatWhile
 repeat
 sequenceGen
+sequenceFromIterable
+sequenceFromObject
 reduce
 retryWhile
 timeout

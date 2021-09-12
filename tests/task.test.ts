@@ -457,7 +457,7 @@ makeTest(
 
 makeTest(
   async () =>
-    Task.sequenceFrom([1, 2, 3])
+    Task.sequenceFromIterable([1, 2, 3])
       .reduce((a, b) => a + b, 0)
       .runUnsafe(),
   (r) => r.toEqual(6)
@@ -465,7 +465,7 @@ makeTest(
 
 makeTest(
   async () =>
-    Task.sequenceFrom("abc")
+    Task.sequenceFromIterable("abc")
       .map((s) => `[${s}]`)
       .runUnsafe(),
   (r) => r.toEqual("[c]")
@@ -473,20 +473,20 @@ makeTest(
 
 makeTest(
   async () =>
-    Task.sequenceFrom("abc")
+    Task.sequenceFromIterable("abc")
       .collectWhen((s) => s !== "b")
       .runUnsafe(),
   (r) => r.toEqual(["a", "c"])
 );
 
 makeTest(
-  async () => Task.sequenceFrom("abc").collectAll().runUnsafe(),
+  async () => Task.sequenceFromIterable("abc").collectAll().runUnsafe(),
   (r) => r.toEqual(["a", "b", "c"])
 );
 
 makeTest(
   async () =>
-    Task.sequenceFrom("abc")
+    Task.sequenceFromIterable("abc")
       .reduce((a, b) => `${b}-${a}`, "")
       .runUnsafe(),
   (r) => r.toEqual("-a-b-c")
@@ -506,7 +506,7 @@ makeTest(
 
     const mLog = (msg: string) => logData.push(msg);
 
-    return Task.sequenceFrom(["one", "two"])
+    return Task.sequenceFromIterable(["one", "two"])
       .chain((msg) =>
         Task.succeed(msg)
           .access<{ log: typeof log }>()

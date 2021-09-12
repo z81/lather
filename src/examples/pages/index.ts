@@ -50,7 +50,7 @@ const urls = urlPrefixes.flatMap((pref) =>
 );
 
 const getPages = (urls: string[]) =>
-  Task.sequenceFrom(urls)
+  Task.sequenceFromIterable(urls)
     .timeout(50)
     .map(getPage)
     .mapError((e) => console.error(e?.message ?? e))

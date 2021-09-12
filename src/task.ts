@@ -39,8 +39,31 @@ type DiffErr<RE, PD> = {
   };
 };
 
+type TaskValue<T extends Object> = {
+  [k in keyof T]: T[k] extends Task<infer U, any, any, any, any> ? U : never;
+};
+type TaskReqEnv<T extends Object> = {
+  [k in keyof T]: T[k] extends Task<any, infer U, any, any, any> ? U : never;
+}[keyof T];
+
+type TaskProvEnv<T extends Object> = {
+  [k in keyof T]: T[k] extends Task<any, any, infer U> ? U : never;
+}[keyof T];
+
+type TaskError<T extends Object> = {
+  [k in keyof T]: T[k] extends Task<any, any, any, infer U> ? U : never;
+}[keyof T];
+
+type TaskAsync<T extends Object> = {
+  [k in keyof T]: T[k] extends Task<any, any, any, any, infer U> ? U : never;
+}[keyof T];
+
 interface Iterable<T> {
   [Symbol.iterator](): IterableIterator<T>;
+}
+
+interface AsyncIterable<T> {
+  [Symbol.asyncIterator](): AsyncIterableIterator<T>;
 }
 
 export class Task<
@@ -231,9 +254,13 @@ export class Task<
    * @param fn
    * @returns
    */
-  private sequenceGen<R>(fn: (val: T) => Generator<T, unknown, R>) {
-    let gen: Generator;
-    let next: IteratorResult<unknown, unknown>;
+  private sequenceGen<R>(
+    fn: (val: T) => Generator<T, unknown, R> | AsyncGenerator<T, unknown, R>
+  ) {
+    let gen: Generator | AsyncGenerator;
+    let next:
+      | IteratorResult<unknown, unknown>
+      | Promise<IteratorResult<unknown, unknown>>;
     this.runtime.then({
       fn: (val: T) => {
         if (!gen) {
@@ -243,17 +270,26 @@ export class Task<
 
         let pos = this.runtime.position;
         this.runtime.addHook(Triggers.End, (branchId) => {
+          // Todo: fix async generator
+          // @ts-expect-error
           if (!next.done && branchId === TaskBranches.Success) {
             next = gen.next();
 
+            // @ts-expect-error
             if (!next.done) {
               this.runtime.position = pos;
+              // @ts-expect-error
               this.runtime.branches[TaskBranches.Success] = next.value;
             }
           }
         });
 
-        return next.value;
+        return next instanceof Promise
+          ? next.then((v) => {
+              (next as any).done = v.done;
+              return v.value;
+            })
+          : next.value;
       },
       name: "sequenceGen",
     });
@@ -528,7 +564,9 @@ export class Task<
    * @param fn
    * @returns
    */
-  static sequenceGen<T>(fn: () => Generator<T, void, unknown>) {
+  static sequenceGen<T>(
+    fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>
+  ) {
     return new Task().sequenceGen(fn).castThis<T>();
   }
 
@@ -537,18 +575,41 @@ export class Task<
    * @param fn
    * @returns
    */
-  static sequenceFrom<T, R>(iter: Iterable<R>) {
-    return new Task()
-      .succeed()
+  static sequenceFromIterable<R>(itererable: Iterable<R> | AsyncIterable<R>) {
+    const iter = itererable as any; // TODO: FIX
+    // | Generator<R, unknown, undefined>
+    // | AsyncGenerator<R, unknown, undefined>;
+    return Task.empty
       .sequenceGen(() =>
-        (iter as Generator<R, unknown, undefined>)[Symbol.iterator]()
+        (
+          iter[Symbol.iterator] ||
+          (iter as any)[Symbol.asyncIterator].bind(iter)
+        )()
       )
       .castThis<R>();
   }
 
-  protected structPar<
-    T extends Record<string, Task<unknown>>,
-    R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
+  static sequenceFromObject<
+    T extends Object,
+    R extends { [k in keyof T]: [k, T[k]] }[keyof T]
+  >(obj: T) {
+    return new Task()
+      .succeed()
+      .sequenceGen(() =>
+        (Object.entries(obj) as unknown as Generator<T, unknown, undefined>)[
+          Symbol.iterator
+        ]()
+      )
+      .castThis<R>();
+  }
+
+  public structPar<
+    T extends Record<string, Task<any, any>>,
+    R extends TaskValue<T>,
+    RENV extends TaskReqEnv<T>,
+    PENV extends TaskProvEnv<T>,
+    Err extends TaskError<T>,
+    A extends TaskAsync<T>
   >(struct: T) {
     this.runtime.then({
       name: "structPar",
@@ -557,14 +618,14 @@ export class Task<
           await Promise.all(
             Object.entries(struct).map(async ([name, task]) => [
               name,
-              await task.runUnsafe(),
+              await task.provide(this.env).runUnsafe(),
             ])
           )
         );
       },
     });
 
-    return this.castThis<R>();
+    return this.castThis<R, RENV, PENV, Err, A>();
   }
 
   /**
@@ -616,7 +677,7 @@ export class Task<
       branch: TaskBranches.Success,
     });
 
-    return this.castThis<T>();
+    return this.castThis<T, ReqENV, ProvEnv, Err, true>();
   }
 
   /**

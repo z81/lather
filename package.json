@@ -13,6 +13,8 @@
     "example:pages": "concurrently \"yarn example_pages:watch\" \"nodemon dist/pages_example.js\"",
     "example_module:watch": "esbuild src/examples/module/index.ts --bundle --platform=node --watch --sourcemap=external --outfile=dist/module_example.js",
     "example:module": "concurrently \"yarn example_module:watch\" \"nodemon dist/module_example.js\"",
+    "example_hello:watch": "esbuild src/examples/hello/index.ts --bundle --platform=node --watch --sourcemap=external --outfile=dist/hello_example.js",
+    "example:hello": "concurrently \"yarn example_hello:watch\" \"nodemon dist/hello_example.js\"",
     "test:watch": "jest --watchAll --collectCoverage",
     "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal"
   },
