@@ -633,13 +633,24 @@ export class Task<
    * @param fn
    * @returns
    */
-  static structPar<T extends Record<string, Task<any>>>(struct: T) {
-    return new Task().structPar(struct);
+  static structPar<
+    T extends Record<string, Task<any, any>>,
+    R extends TaskValue<T>,
+    RENV extends TaskReqEnv<T>,
+    PENV extends TaskProvEnv<T>,
+    Err extends TaskError<T>,
+    A extends TaskAsync<T>
+  >(struct: T) {
+    return new Task<R, RENV, PENV, Err, A>().structPar(struct);
   }
 
   protected struct<
-    T extends Record<string, Task<any>>,
-    R extends { [k in keyof T]: T[k] extends Task<infer U> ? U : never }
+    T extends Record<string, Task<any, any>>,
+    R extends TaskValue<T>,
+    RENV extends TaskReqEnv<T>,
+    PENV extends TaskProvEnv<T>,
+    Err extends TaskError<T>,
+    A extends TaskAsync<T>
   >(struct: T) {
     this.runtime.then({
       name: "struct",
@@ -667,7 +678,7 @@ export class Task<
       },
     });
 
-    return this.castThis<R>();
+    return this.castThis<R, RENV, PENV, Err, A>();
   }
 
   public fromCallback<T>(fn: (cb: (value: T) => void) => unknown) {
@@ -685,8 +696,15 @@ export class Task<
    * @param struct
    * @returns
    */
-  static struct<T extends Record<string, Task<any>>>(struct: T) {
-    return new Task().struct(struct);
+  static struct<
+    T extends Record<string, Task<any, any>>,
+    R extends TaskValue<T>,
+    RENV extends TaskReqEnv<T>,
+    PENV extends TaskProvEnv<T>,
+    Err extends TaskError<T>,
+    A extends TaskAsync<T>
+  >(struct: T) {
+    return new Task<R, RENV, PENV, Err, A>().struct(struct);
   }
 
   /**

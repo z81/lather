@@ -31,15 +31,14 @@ const consumer1 = Task.empty
 const consumer2 = Task.empty
   .access<{ queue: Queue<string> }>()
   .chain(({ queue }) =>
-    Task.sequenceFromIterable(queue).tap((msg) => console.log(`@2 ${msg}`, msg))
+    Task.sequenceFromIterable(queue).tap((msg) => console.log(`@2 ${msg}`))
   );
 
-Task.empty
-  .structPar({
-    server,
-    consumer1,
-    consumer2,
-  })
+Task.structPar({
+  server,
+  consumer1,
+  consumer2,
+})
   .provide({
     queue: messageQueue,
   })
