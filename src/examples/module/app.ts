@@ -2,7 +2,7 @@ import { Task } from "../..";
 import { info, log } from "./logger";
 import { get } from "./get";
 import { schema } from "./schema";
-import { flow } from "../../flow";
+import { flow } from "../../fn";
 
 export const app = Task.empty
   .access<{ API_URL: string }>()

@@ -567,7 +567,9 @@ export class Task<
   static sequenceGen<T>(
     fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>
   ) {
-    return new Task().sequenceGen(fn).castThis<T>();
+    return new Task()
+      .sequenceGen(fn)
+      .castThis<never extends T ? undefined : T>();
   }
 
   /**

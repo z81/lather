@@ -3,8 +3,6 @@ import { Queue } from "../../queue";
 
 const messageQueue = new Queue<string>();
 
-setTimeout(() => messageQueue.clear(), 500);
-
 const server = Task.empty
   .access<{ queue: Queue<string> }>()
   .chain(({ queue }) =>
@@ -25,8 +23,6 @@ const consumer1 = Task.empty
       for await (const m of queue) {
         console.log("@1", m);
       }
-
-      yield;
     })
   );
 
