@@ -270,26 +270,26 @@ export class Task<
 
         let pos = this.runtime.position;
         this.runtime.addHook(Triggers.End, (branchId) => {
-          // Todo: fix async generator
           // @ts-expect-error
           if (!next.done && branchId === TaskBranches.Success) {
             next = gen.next();
 
-            // @ts-expect-error
-            if (!next.done) {
-              this.runtime.position = pos;
-              // @ts-expect-error
-              this.runtime.branches[TaskBranches.Success] = next.value;
-            }
+            return callHandled(
+              () => gen.next(),
+              [],
+              (res: any) => {
+                if (!res.done) {
+                  this.runtime.position = pos;
+                  // @ts-expect-error
+                  this.runtime.branches[TaskBranches.Success] = next.value;
+                }
+              },
+              () => {}
+            );
           }
         });
 
-        return next instanceof Promise
-          ? next.then((v) => {
-              (next as any).done = v.done;
-              return v.value;
-            })
-          : next.value;
+        return next instanceof Promise ? next.then((v) => v.value) : next.value;
       },
       name: "sequenceGen",
     });

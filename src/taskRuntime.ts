@@ -1,5 +1,11 @@
 import { callHandled } from "./callHandled";
 
+export class TaskRuntimeHookError<E> {
+  readonly _tag = "TaskRuntimeHookError";
+
+  constructor(public readonly error: E) {}
+}
+
 export enum TaskBranches {
   Success = "Success",
   Fail = "Fail",
@@ -46,15 +52,29 @@ export class TaskRuntime<T = undefined> {
 
   public run(): T {
     if (this.position >= this.callbacks.length) {
-      this.triggerMap[Triggers.End].forEach((cb) =>
-        cb(this.branchId, this.rejectPosition)
-      );
+      const promises: unknown[] = [];
+      this.triggerMap[Triggers.End].forEach((cb) => {
+        const res = cb(this.branchId, this.rejectPosition);
+        if (res instanceof Promise) {
+          promises.push(res);
+        }
+      });
 
-      if (this.position >= this.callbacks.length) {
-        return this.branchValue as any;
-      } else {
-        return this.run();
-      }
+      return callHandled(
+        () => (promises.length > 0 ? Promise.all(promises) : undefined),
+        [],
+        () => {
+          if (this.position >= this.callbacks.length) {
+            return this.branchValue as any;
+          } else {
+            return this.run();
+          }
+        },
+        (e) => {
+          this.branches[TaskBranches.Fail] = new TaskRuntimeHookError(e);
+          this.branchId = TaskBranches.Fail;
+        }
+      ) as any;
     }
 
     if (this.position > 0) {
