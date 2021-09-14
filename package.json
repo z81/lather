@@ -1,8 +1,10 @@
 {
   "name": "@lather/core",
   "version": "0.3.5",
-  "main": "index.js",
   "license": "MIT",
+  "main": "./lib/cjs/index.js",
+  "module": "./lib/esm/index.js",
+  "types": "./lib/esm/index.d.ts",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --minify --sourcemap=external --outfile=dist/index.js",
     "watch": "esbuild src/index.ts --bundle --watch --sourcemap=external --outfile=dist/index.js",
@@ -16,8 +18,14 @@
     "example_hello:watch": "esbuild src/examples/hello/index.ts --bundle --platform=node --watch --sourcemap=external --outfile=dist/hello_example.js",
     "example:hello": "concurrently \"yarn example_hello:watch\" \"nodemon dist/hello_example.js\"",
     "test:watch": "jest --watchAll --collectCoverage",
-    "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal"
+    "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal",
+    "build:all": "rimraf lib && yarn build:esm && yarn build:cjs",
+    "build:esm": "tsc --outDir lib/esm",
+    "build:cjs": "tsc --module commonjs --outDir lib/cjs"
   },
+  "files": [
+    "/lib"
+  ],
   "jest": {
     "transform": {
       "^.+\\.tsx?$": [
@@ -43,6 +51,7 @@
     "esbuild-jest": "^0.5.0",
     "jest": "^27.0.6",
     "nodemon": "^2.0.9",
+    "rimraf": "^3.0.2",
     "typedoc": "^0.21.4",
     "typescript": "^4.3.4",
     "zod": "^3.8.2"
