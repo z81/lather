@@ -1,3 +1,10 @@
+# Installation
+`yarn add @lather/core` or `npm i @lather/core`
+# Docs
+https://z81.github.io/lather/
+# Full examples
+src/example/
+# Short examples
 ```ts
 console.log('Sync task:', Task.succeed(1).map(n => n * 2).runUnsafe())
 // Sync task: 4
