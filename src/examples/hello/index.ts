@@ -23,6 +23,7 @@ const consumer1 = Task.empty
       for await (const m of queue) {
         console.log("@1", m);
       }
+      yield 1;
     })
   );
 

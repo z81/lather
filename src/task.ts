@@ -272,16 +272,16 @@ export class Task<
         this.runtime.addHook(Triggers.End, (branchId) => {
           // @ts-expect-error
           if (!next.done && branchId === TaskBranches.Success) {
-            next = gen.next();
-
             return callHandled(
-              () => gen.next(),
+              () => {
+                next = gen.next();
+                return next;
+              },
               [],
               (res: any) => {
                 if (!res.done) {
                   this.runtime.position = pos;
-                  // @ts-expect-error
-                  this.runtime.branches[TaskBranches.Success] = next.value;
+                  this.runtime.branches[TaskBranches.Success] = res.value;
                 }
               },
               () => {}
@@ -579,12 +579,10 @@ export class Task<
     const iter = itererable as any; // TODO: FIX
     // | Generator<R, unknown, undefined>
     // | AsyncGenerator<R, unknown, undefined>;
+
     return Task.empty
       .sequenceGen(() =>
-        (
-          iter[Symbol.iterator] ||
-          (iter as any)[Symbol.asyncIterator].bind(iter)
-        )()
+        (iter[Symbol.iterator] || iter[Symbol.asyncIterator]).call(iter)
       )
       .castThis<R>();
   }

@@ -3,7 +3,7 @@
 # Docs
 https://z81.github.io/lather/
 # Full examples
-[src/example/](https://github.com/z81/lather/tree/master/src/examples)
+[src/examples/](https://github.com/z81/lather/tree/master/src/examples)
 # Short examples
 ```ts
 console.log('Sync task:', Task.succeed(1).map(n => n * 2).runUnsafe())

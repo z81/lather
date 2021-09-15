@@ -294,7 +294,7 @@ makeTest(
       a: Task.succeed(1).map(() => Date.now()),
       b: Task.succeed(2).map(() => Date.now()),
     })
-      .map(({ a, b }) => Math.round((a - b) / 4))
+      .map(({ a, b }) => Math.abs(Math.round((a - b) / 4)))
       .runUnsafe(),
   (r) => r.toEqual(0)
 );
