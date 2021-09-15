@@ -530,6 +530,35 @@ export class Task<
     return this.castThis<R>();
   }
 
+  public throttle(time: number) {
+    let enabled = true;
+    let endValue: T | undefined = undefined;
+
+    this.runtime.then({
+      name: "throttle",
+      fn: (value: T) => {
+        this.runtime.addHook(Triggers.End, () => {
+          endValue = this.runtime.branches[TaskBranches.Success] as T;
+        });
+
+        if (enabled) {
+          enabled = false;
+
+          setTimeout(() => {
+            enabled = true;
+          }, time);
+        } else {
+          this.runtime.position = this.runtime.callbacks.length - 1;
+          return endValue;
+        }
+
+        return value;
+      },
+    });
+
+    return this.castThis<T>();
+  }
+
   /**
    * delay task on @time ms, change type to async task
    * @param time

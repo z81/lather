@@ -619,12 +619,25 @@ makeTest(
 
 makeTest(
   async () =>
-    Task.succeed(0)
-      .map(() => [1, 2, 3])
+    Task.succeed([1, 2, 3])
       .flat()
       .reduce((a, b) => a + b, "")
       .runUnsafe(),
   (r) => r.toEqual("123")
+);
+
+makeTest(
+  async () =>
+    Task.sequenceGen(async function* () {
+      for (let i = 0; i < 10; i++) {
+        yield Task.succeed(i).delay(100).runUnsafe();
+      }
+    })
+      .throttle(500)
+      .collectAll()
+      .tap(console.log)
+      .runUnsafe(),
+  (r) => r.toEqual([0, 5])
 );
 
 // max stack
