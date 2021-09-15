@@ -507,6 +507,29 @@ export class Task<
     return this;
   }
 
+  public flat<R extends T extends (infer Z)[] ? Z : never>() {
+    this.castThis<T extends (infer Z)[] ? Z[] : unknown[]>().runtime.then({
+      name: "flat",
+      fn: (value) => {
+        const pos = this.runtime.position;
+
+        this.runtime.addHook(Triggers.End, () => {
+          if (
+            this.runtime.branchId === TaskBranches.Success &&
+            value.length > 0
+          ) {
+            this.runtime.branches[TaskBranches.Success] = value.pop();
+            this.runtime.position = pos + 1;
+          }
+        });
+
+        return value.pop();
+      },
+    });
+
+    return this.castThis<R>();
+  }
+
   /**
    * delay task on @time ms, change type to async task
    * @param time

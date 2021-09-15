@@ -617,6 +617,16 @@ makeTest(
   (r) => r.toBe(1)
 );
 
+makeTest(
+  async () =>
+    Task.succeed(0)
+      .map(() => [1, 2, 3])
+      .flat()
+      .reduce((a, b) => a + b, "")
+      .runUnsafe(),
+  (r) => r.toEqual("123")
+);
+
 // max stack
 makeTest(
   async () => {
