@@ -1,5 +1,10 @@
 language: node_js
 node_js:
-  - "14.7.6"
+  - "16.9"
 script:
   - npm run test && npm run build:all
+deploy:
+  tag: next
+  provider: npm
+  email: "YOUR_EMAIL_ADDRESS"
+  api_key: "YOUR_AUTH_TOKEN"
