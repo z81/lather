@@ -1,0 +1,61 @@
+{
+  "name": "@lather/core",
+  "version": "0.4.0",
+  "license": "MIT",
+  "main": "./lib/cjs/index.js",
+  "module": "./lib/esm/index.js",
+  "types": "./lib/esm/index.d.ts",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --minify --sourcemap=external --outfile=dist/index.js",
+    "watch": "esbuild src/index.ts --bundle --watch --sourcemap=external --outfile=dist/index.js",
+    "dev": "concurrently \"yarn watch\" \"nodemon dist/index.js\"",
+    "debug": "concurrently \"yarn watch\" \"nodemon --inspect=0.0.0.0 dist/index.js\"",
+    "test": "jest --coverage",
+    "example_pages:watch": "esbuild src/examples/pages/index.ts --bundle --watch --sourcemap=external --outfile=dist/pages_example.js",
+    "example:pages": "concurrently \"yarn example_pages:watch\" \"nodemon dist/pages_example.js\"",
+    "example_module:watch": "esbuild src/examples/module/index.ts --bundle --platform=node --watch --sourcemap=external --outfile=dist/module_example.js",
+    "example:module": "concurrently \"yarn example_module:watch\" \"nodemon dist/module_example.js\"",
+    "example_hello:watch": "esbuild src/examples/hello/index.ts --bundle --platform=node --watch --sourcemap=external --outfile=dist/hello_example.js",
+    "example:hello": "concurrently \"yarn example_hello:watch\" \"nodemon dist/hello_example.js\"",
+    "test:watch": "jest --watchAll --coverage",
+    "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal",
+    "build:all": "rimraf lib && yarn build:esm && yarn build:cjs",
+    "build:esm": "tsc --outDir lib/esm",
+    "build:cjs": "tsc --module commonjs --outDir lib/cjs",
+    "report-coverage": "cat ./coverage/lcov.info | coveralls"
+  },
+  "files": [
+    "/lib"
+  ],
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": [
+        "esbuild-jest",
+        {
+          "sourcemap": true,
+          "loaders": {
+            ".test.ts": "ts"
+          }
+        }
+      ]
+    },
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/"
+    ]
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.24",
+    "@types/node": "^15.12.5",
+    "concurrently": "^6.2.0",
+    "coveralls": "^3.1.1",
+    "esbuild": "^0.12.12",
+    "esbuild-jest": "^0.5.0",
+    "jest": "^27.0.6",
+    "nodemon": "^2.0.9",
+    "rimraf": "^3.0.2",
+    "typedoc": "^0.21.4",
+    "typescript": "^4.3.4",
+    "zod": "^3.8.2"
+  }
+}
