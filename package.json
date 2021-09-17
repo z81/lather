@@ -21,7 +21,8 @@
     "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal",
     "build:all": "rimraf lib && yarn build:esm && yarn build:cjs",
     "build:esm": "tsc --outDir lib/esm",
-    "build:cjs": "tsc --module commonjs --outDir lib/cjs"
+    "build:cjs": "tsc --module commonjs --outDir lib/cjs",
+    "report-coverage": "cat ./coverage/lcov.info | coveralls"
   },
   "files": [
     "/lib"

@@ -2,9 +2,12 @@ language: node_js
 node_js:
   - "16.9"
 script:
-  - npm run test && npm run build:all
+  - npm run test
+  - npm run build:all
 deploy:
-  tag: next
+  tags: true
   provider: npm
   email: "NPM_EMAIL"
   api_key: $NPM_TOKEN
+after_success:
+  - npm run report-coverage
