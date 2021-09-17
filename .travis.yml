@@ -5,9 +5,15 @@ script:
   - npm run test
   - npm run build:all
 deploy:
-  tags: true
-  provider: npm
-  email: "NPM_EMAIL"
-  api_key: $NPM_TOKEN
+  - provider: npm
+    tags: true
+    email: "NPM_EMAIL"
+    api_key: $NPM_TOKEN
+  - provider: pages
+    skip_cleanup: true
+    github_token: $GITHUB_TOKEN
+    keep_history: true
+
 after_success:
   - npm run report-coverage
+  - npm run docs
