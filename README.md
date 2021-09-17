@@ -1,6 +1,5 @@
 ![build](https://api.travis-ci.com/z81/lather.svg)
-
-[![npm version](https://badge.fury.io/js/lather.svg)](https://badge.fury.io/js/lather)
+[![npm version](https://badge.fury.io/js/@lather/core.svg)](https://badge.fury.io/js/@lather/core)
 [![Build Status](https://travis-ci.org/z81/lather.svg?branch=master)](https://travis-ci.org/z81/lather)
 [![Coverage Status](https://coveralls.io/repos/github/z81/lather/badge.svg?branch=master)](https://coveralls.io/github/z81/lather?branch=master)
 # Installation
