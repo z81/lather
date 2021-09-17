@@ -10,7 +10,7 @@
     "watch": "esbuild src/index.ts --bundle --watch --sourcemap=external --outfile=dist/index.js",
     "dev": "concurrently \"yarn watch\" \"nodemon dist/index.js\"",
     "debug": "concurrently \"yarn watch\" \"nodemon --inspect=0.0.0.0 dist/index.js\"",
-    "test": "jest",
+    "test": "jest --collectCoverage",
     "example_pages:watch": "esbuild src/examples/pages/index.ts --bundle --watch --sourcemap=external --outfile=dist/pages_example.js",
     "example:pages": "concurrently \"yarn example_pages:watch\" \"nodemon dist/pages_example.js\"",
     "example_module:watch": "esbuild src/examples/module/index.ts --bundle --platform=node --watch --sourcemap=external --outfile=dist/module_example.js",
