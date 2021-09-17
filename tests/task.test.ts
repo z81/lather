@@ -635,7 +635,6 @@ makeTest(
     })
       .throttle(500)
       .collectAll()
-      .tap(console.log)
       .runUnsafe(),
   (r) => r.toEqual([0, 5])
 );
