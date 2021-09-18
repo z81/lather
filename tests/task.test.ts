@@ -1,5 +1,6 @@
 import { Fail, Result, Task, TimeOutError } from '../src/task';
 import { makeTestRunner } from './configure';
+import { delay, _ } from '../src/fn';
 
 const makeTest = makeTestRunner(__filename);
 
@@ -436,7 +437,7 @@ makeTest(
 // seq
 makeTest(
   async () =>
-    Task.sequenceGen(function* () {
+    Task.sequenceFromGen(function* () {
       yield 1;
       yield 2;
       yield 3;
@@ -549,10 +550,7 @@ makeTest(
       );
     };
     try {
-      return await Task.succeed('google')
-        .retryWhile(() => true)
-        .map(getPage)
-        .runUnsafe();
+      return await Task.succeed('google').retryWhile(_(true)).map(getPage).runUnsafe();
     } catch (e) {
       return e;
     }
@@ -573,7 +571,6 @@ makeTest(
 
 makeTest(
   async (fn) => (await Task.succeed(0).timeout(1).delay(50).map(fn).run()) && fn.mock.calls.length,
-
   (r) => r.toBe(0),
 );
 
@@ -611,7 +608,7 @@ makeTest(
 
 makeTest(
   async () =>
-    Task.sequenceGen(async function* () {
+    Task.sequenceFromGen(async function* () {
       for (let i = 0; i < 10; i++) {
         yield Task.succeed(i).delay(100).runUnsafe();
       }
@@ -688,6 +685,41 @@ makeTest(
       .collectAll()
       .runUnsafe(),
   (r) => r.toEqual([]),
+);
+
+makeTest(
+  () =>
+    Task.sequenceFromGen(async function* () {
+      for (let i = 0; i < 10; i++) {
+        yield i;
+        await delay(30);
+      }
+    })
+      .throttle(45)
+      .collectAll()
+      .runUnsafe(),
+  (r) => r.toEqual([0, 2, 4, 6, 8]),
+);
+
+makeTest(
+  (fn: any) =>
+    Task.succeed(1)
+      .tap(_(Task.succeed(6).tap(fn)))
+      .runUnsafe() && fn.mock.calls.length,
+  (r) => r.toEqual(1),
+);
+
+makeTest(
+  (fn) =>
+    Task.succeed(0)
+      .tap(_(Task.succeed(1).tap(fn)))
+      .runUnsafe(),
+  (r) => r.toEqual(0),
+);
+
+makeTest(
+  (fn: any) => Task.succeed(0).tap(fn).runUnsafe() || fn.mock.calls.length,
+  (r) => r.toEqual(1),
 );
 
 // type checks

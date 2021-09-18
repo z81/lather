@@ -128,26 +128,6 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
     return this.castThis<NT, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
   }
 
-  public tapChain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(
-    fn: (value: T) => Task<NT, NRE, NPE, NER, A>,
-  ) {
-    this.runtime.then({
-      fn: (val: T) =>
-        callHandled(
-          () => fn(val).provide<any>(this.env).runUnsafe(),
-          [],
-          () => val,
-          (err) => {
-            throw err;
-          },
-        ),
-      name: 'tapChain',
-      branch: TaskBranches.Success,
-    });
-
-    return this.castThis<T, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
-  }
-
   /**
    * Map to value
    * @param value
@@ -167,17 +147,34 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
    * @param fn
    * @returns
    */
-  public tap<R>(fn: (value: T) => R) {
+  public tap<R, NT, NRE, NPE, NER = Err, A extends boolean = Async, NA extends boolean = Async extends true ? true : A>(
+    fn: (value: T) => R | Task<NT, NRE, NPE, NER, A>,
+  ) {
     this.runtime.then({
-      fn: (val: T) => {
-        fn(val);
-        return val;
-      },
+      fn: (val: T) =>
+        callHandled(
+          () => {
+            const res = fn(val);
+
+            return res instanceof Task ? res.provide<any>(this.env).runUnsafe() : res;
+          },
+          [],
+          () => val,
+          (err) => {
+            throw err;
+          },
+        ),
       name: 'tap',
       branch: TaskBranches.Success,
     });
 
-    return this.castThis<T>();
+    return this.castThis<
+      T,
+      NA extends never ? ReqENV : ReqENV & NRE,
+      NA extends never ? ProvEnv : ProvEnv & NPE,
+      NA extends never ? Err : NER,
+      NA extends never ? Async : NA
+    >();
   }
 
   protected repeatWhileCond<U extends (value: T) => boolean>(fn: U, name: string, toReject = false) {
@@ -601,7 +598,7 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
    * @param fn
    * @returns
    */
-  static sequenceGen<T>(fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>) {
+  static sequenceFromGen<T>(fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>) {
     return new Task().sequenceGen(fn).castThis<T>();
   }
 
