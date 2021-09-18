@@ -1,19 +1,20 @@
-import { callHandled } from "./callHandled";
+import { callHandled } from './callHandled';
 
 export class TaskRuntimeHookError<E> {
-  readonly _tag = "TaskRuntimeHookError";
+  readonly _tag = 'TaskRuntimeHookError';
 
   constructor(public readonly error: E) {}
 }
 
 export enum TaskBranches {
-  Success = "Success",
-  Fail = "Fail",
+  Success = 'Success',
+  Fail = 'Fail',
 }
 
 export enum Triggers {
-  Step = "Step",
-  End = "End",
+  Step = 'Step',
+  Cycle = 'Cycle',
+  End = 'End',
 }
 
 export type TaskCallback<T, R> = {
@@ -38,11 +39,12 @@ export class TaskRuntime<T = undefined> {
   };
   protected triggerMap = {
     [Triggers.Step]: new Map<number, Function>(),
+    [Triggers.Cycle]: new Map<number, Function>(),
     [Triggers.End]: new Map<number, Function>(),
   };
 
   public then<R>(fn: TaskCallback<T, R>, last = true) {
-    this.callbacks[last ? "push" : "unshift"](fn);
+    this.callbacks[last ? 'push' : 'unshift'](fn);
     return this as any as TaskRuntime<R extends Promise<infer U> ? U : R>;
   }
 
@@ -50,68 +52,82 @@ export class TaskRuntime<T = undefined> {
     this.triggerMap[type].set(this.position, fn);
   }
 
-  public run(): T {
-    if (this.position >= this.callbacks.length) {
+  protected handleError<E>(e: E) {
+    this.rejectPosition = this.position - 1;
+    this.branches[TaskBranches.Fail] = e;
+    this.branchId = TaskBranches.Fail;
+  }
+
+  protected runStepHooks() {
+    if (this.position > 0) {
+      this.triggerMap[Triggers.Step].forEach((cb) => cb(this.value));
+    }
+  }
+
+  public run(): any {
+    for (; this.position < this.callbacks.length; this.position++) {
+      if (this.callback.branch !== undefined && this.callback.branch !== this.branchId) {
+        continue;
+      }
+
+      try {
+        const res = this.callback.fn(this.value as T);
+
+        if (res instanceof Promise) {
+          this.position++;
+
+          return res
+            .then((value) => {
+              this.value = value;
+              this.runStepHooks();
+              return this.run();
+            })
+            .catch((e) => {
+              console.log('e2', this.branchId, this.branches);
+              this.handleError(e);
+              this.runStepHooks();
+              console.log('e2', this.branchId, this.branches);
+              return this.run();
+            });
+        }
+        this.value = res;
+      } catch (e) {
+        this.handleError(e);
+      }
+      this.runStepHooks();
+    }
+
+    if (this.position >= this.callbacks.length && this.position !== Infinity) {
+      this.position = Infinity;
       const promises: unknown[] = [];
-      this.triggerMap[Triggers.End].forEach((cb) => {
+      this.triggerMap[Triggers.Cycle].forEach((cb) => {
         const res = cb(this.branchId, this.rejectPosition);
         if (res instanceof Promise) {
           promises.push(res);
         }
       });
 
-      return callHandled(
-        () => (promises.length > 0 ? Promise.all(promises) : undefined),
-        [],
-        () => {
-          if (this.position >= this.callbacks.length) {
-            return this.branchValue as any;
-          } else {
-            return this.run();
-          }
-        },
-        (e) => {
-          this.branches[TaskBranches.Fail] = new TaskRuntimeHookError(e);
-          this.branchId = TaskBranches.Fail;
-        }
-      ) as any;
-    }
-
-    if (this.position > 0) {
-      this.triggerMap[Triggers.Step].forEach((cb) => cb(this.branchValue));
-    }
-
-    if (
-      this.callback.branch !== undefined &&
-      this.callback.branch !== this.branchId
-    ) {
-      this.position++;
-      return this.run();
-    }
-
-    return callHandled(
-      this.callback.fn as any,
-      [this.branchValue],
-      (v) => {
-        this.branches[this.branchId] = v as any;
-        this.position++;
-        return this.run();
-      },
-      (err) => {
-        this.rejectPosition = this.position;
-        this.branchId = TaskBranches.Fail;
-        this.branches[TaskBranches.Fail] = err;
-        this.position++;
+      if (promises.length > 0) {
+        return Promise.all(promises).then(() => this.run());
+      } else {
         return this.run();
       }
-    ) as any;
+    }
+
+    this.triggerMap[Triggers.End].forEach((_) => _(this.branchId, this.rejectPosition));
+
+    return this.value;
   }
 
   protected get callback() {
     return this.callbacks[this.position];
   }
 
-  protected get branchValue() {
-    return this.branches[this.branchId];
+  protected get value() {
+    return this.branches[this.branchId] as T;
+  }
+
+  protected set value(value: any) {
+    this.branches[this.branchId] = value;
   }
 }

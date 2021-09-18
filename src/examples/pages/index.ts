@@ -1,4 +1,4 @@
-import { Task } from "../../task";
+import { Task } from '../../task';
 
 // Mock http request
 
@@ -14,40 +14,38 @@ const getPage = (url: string) => {
           res(`<html>#{${id}} hello from ${url}<html>`);
         }
       },
-      id % 10 === 0 ? 1000 : 10
-    )
+      id % 10 === 0 ? 500 : 10,
+    ),
   );
 };
 
 const urlPrefixes = [
-  "google",
-  "fb",
-  "fbi",
-  "instagram",
-  "ford",
-  "csi",
-  "twitter",
-  "teasl",
-  "twitch",
-  "gmail",
-  "apple",
-  "twillo",
-  "yahoo",
-  "github",
-  "gitlab",
-  "link",
-  "run",
-  "check",
-  "test",
-  "todo",
-  "trello",
+  'google',
+  'fb',
+  'fbi',
+  'instagram',
+  'ford',
+  'csi',
+  'twitter',
+  'teasl',
+  'twitch',
+  'gmail',
+  'apple',
+  'twillo',
+  'yahoo',
+  'github',
+  'gitlab',
+  'link',
+  'run',
+  'check',
+  'test',
+  'todo',
+  'trello',
 ];
 
-const domainZones = ["com", "space", "cat"];
+const domainZones = ['com', 'space', 'cat'];
 
-const urls = urlPrefixes.flatMap((pref) =>
-  domainZones.map((dom) => `${pref}.${dom}`)
-);
+const urls = urlPrefixes.flatMap((pref) => domainZones.map((dom) => `${pref}.${dom}`));
 
 const getPages = (urls: string[]) =>
   Task.sequenceFromIterable(urls)
@@ -61,8 +59,8 @@ const getPages = (urls: string[]) =>
 (async () => {
   try {
     const res = await getPages(urls);
-    console.log("Res", res);
+    console.log('Res', res);
   } catch (e) {
-    console.log("pages", e);
+    console.log('pages', e);
   }
 })();

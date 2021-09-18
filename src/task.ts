@@ -1,12 +1,12 @@
-import { callHandled } from "./callHandled";
-import { TaskBranches, TaskRuntime, Triggers } from "./taskRuntime";
+import { callHandled } from './callHandled';
+import { TaskBranches, TaskRuntime, Triggers } from './taskRuntime';
 
 export class TimeOutError extends Error {
-  public readonly _tag = "TimeOutError";
+  public readonly _tag = 'TimeOutError';
 }
 
 export class Result<T> {
-  public readonly _tag = "Result";
+  public readonly _tag = 'Result';
 
   constructor(public readonly value: T) {}
 
@@ -26,12 +26,8 @@ export class Fail<E> {
 type EmptyArray = unknown[] & { length: 0 };
 
 type DiffErr<RE, PD> = {
-  [k in keyof RE as k extends keyof PD
-    ? PD[k] extends RE[k]
-      ? never
-      : k
-    : k]: {
-    Error: "Incorrect dependencies";
+  [k in keyof RE as k extends keyof PD ? (PD[k] extends RE[k] ? never : k) : k]: {
+    Error: 'Incorrect dependencies';
     Field: k;
     RequiredValue: RE[k];
     // @ts-expect-error
@@ -66,33 +62,15 @@ interface AsyncIterable<T> {
   [Symbol.asyncIterator](): AsyncIterableIterator<T>;
 }
 
-export class Task<
-  T,
-  ReqENV extends Object = {},
-  ProvEnv extends Object = {},
-  Err extends unknown = Error,
-  Async extends boolean = false
-> {
+export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Err extends unknown = Error, Async extends boolean = false> {
   protected env: ProvEnv = {} as ProvEnv;
   protected runtime = new TaskRuntime<T>();
 
   private constructor() {}
 
   // Mutable for performance
-  protected castThis<
-    R,
-    E = ReqENV,
-    P = ProvEnv,
-    ER = Err,
-    A extends boolean = Async
-  >() {
-    return this as unknown as Task<
-      R extends Promise<infer Z> ? Z : R,
-      E,
-      P,
-      ER,
-      R extends Promise<infer Z> ? true : A
-    >;
+  protected castThis<R, E = ReqENV, P = ProvEnv, ER = Err, A extends boolean = Async>() {
+    return this as unknown as Task<R extends Promise<infer Z> ? Z : R, E, P, ER, R extends Promise<infer Z> ? true : A>;
   }
 
   /**
@@ -103,7 +81,7 @@ export class Task<
   public map<R>(fn: (value: T) => R) {
     this.runtime.then({
       fn,
-      name: "map",
+      name: 'map',
       branch: TaskBranches.Success,
     });
 
@@ -118,7 +96,7 @@ export class Task<
   public mapError<NE>(fn: (value: Err) => NE) {
     this.runtime.then({
       fn: fn as any,
-      name: "mapError",
+      name: 'mapError',
       branch: TaskBranches.Fail,
     });
 
@@ -130,31 +108,21 @@ export class Task<
    * @param fn
    * @returns
    */
-  public chain<
-    NT,
-    NRE,
-    NPE,
-    NER,
-    A extends boolean,
-    NA extends boolean = Async extends true ? true : A
-  >(fn: (value: T) => Task<NT, NRE, NPE, NER, A>) {
+  public chain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(
+    fn: (value: T) => Task<NT, NRE, NPE, NER, A>,
+  ) {
     this.runtime.then({
       fn: (val: T) => fn(val).provide<any>(this.env).runUnsafe(),
-      name: "chain",
+      name: 'chain',
       branch: TaskBranches.Success,
     });
 
     return this.castThis<NT, ReqENV & NRE, ProvEnv & NPE, NER, NA>();
   }
 
-  public tapChain<
-    NT,
-    NRE,
-    NPE,
-    NER,
-    A extends boolean,
-    NA extends boolean = Async extends true ? true : A
-  >(fn: (value: T) => Task<NT, NRE, NPE, NER, A>) {
+  public tapChain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(
+    fn: (value: T) => Task<NT, NRE, NPE, NER, A>,
+  ) {
     this.runtime.then({
       fn: (val: T) =>
         callHandled(
@@ -163,9 +131,9 @@ export class Task<
           () => val,
           (err) => {
             throw err;
-          }
+          },
         ),
-      name: "tapChain",
+      name: 'tapChain',
       branch: TaskBranches.Success,
     });
 
@@ -180,7 +148,7 @@ export class Task<
   public mapTo<R>(value: R) {
     this.runtime.then({
       fn: () => value,
-      name: "mapTo",
+      name: 'mapTo',
       branch: TaskBranches.Success,
     });
     return this.castThis<R>();
@@ -197,29 +165,21 @@ export class Task<
         fn(val);
         return val;
       },
-      name: "tap",
+      name: 'tap',
       branch: TaskBranches.Success,
     });
 
     return this.castThis<T>();
   }
 
-  protected repeatWhileCond<U extends (value: T) => boolean>(
-    fn: U,
-    name: string,
-    toReject = false
-  ) {
+  protected repeatWhileCond<U extends (value: T) => boolean>(fn: U, name: string, toReject = false) {
     this.runtime.then({
       fn: (val: T) => {
         let pos = this.runtime.position;
-        this.runtime.addHook(Triggers.End, () => {
-          if (
-            this.runtime.position >= this.runtime.callbacks.length &&
-            fn(this.runtime.branches[this.runtime.branchId] as T)
-          ) {
-            this.runtime.position = toReject
-              ? this.runtime.rejectPosition!
-              : pos;
+
+        this.runtime.addHook(Triggers.Cycle, () => {
+          if (this.runtime.position === Infinity && fn(this.runtime.branches[this.runtime.branchId] as T)) {
+            this.runtime.position = toReject ? this.runtime.rejectPosition! : pos;
             this.runtime.rejectPosition = undefined;
           }
         });
@@ -237,7 +197,7 @@ export class Task<
    * @returns
    */
   public repeatWhile<U extends (value: T) => boolean>(fn: U) {
-    return this.repeatWhileCond(fn, "repeatWhile");
+    return this.repeatWhileCond(fn, 'repeatWhile');
   }
 
   /**
@@ -246,7 +206,7 @@ export class Task<
    * @returns
    */
   public repeat(count: number) {
-    return this.repeatWhileCond(() => count-- > 0, "repeat");
+    return this.repeatWhileCond(() => count-- > 0, 'repeat');
   }
 
   /**
@@ -254,13 +214,9 @@ export class Task<
    * @param fn
    * @returns
    */
-  private sequenceGen<R>(
-    fn: (val: T) => Generator<T, unknown, R> | AsyncGenerator<T, unknown, R>
-  ) {
+  private sequenceGen<R>(fn: (val: T) => Generator<T, unknown, R> | AsyncGenerator<T, unknown, R>) {
     let gen: Generator | AsyncGenerator;
-    let next:
-      | IteratorResult<unknown, unknown>
-      | Promise<IteratorResult<unknown, unknown>>;
+    let next: IteratorResult<unknown, unknown> | Promise<IteratorResult<unknown, unknown>>;
     this.runtime.then({
       fn: (val: T) => {
         if (!gen) {
@@ -269,7 +225,7 @@ export class Task<
         }
 
         let pos = this.runtime.position;
-        this.runtime.addHook(Triggers.End, (branchId) => {
+        this.runtime.addHook(Triggers.Cycle, (branchId) => {
           // @ts-expect-error
           if (!next.done && branchId === TaskBranches.Success) {
             return callHandled(
@@ -284,14 +240,14 @@ export class Task<
                   this.runtime.branches[TaskBranches.Success] = res.value;
                 }
               },
-              () => {}
+              () => {},
             );
           }
         });
 
         return next instanceof Promise ? next.then((v) => v.value) : next.value;
       },
-      name: "sequenceGen",
+      name: 'sequenceGen',
     });
 
     return this.castThis<R>();
@@ -305,7 +261,7 @@ export class Task<
    */
   public reduce<R>(fn: (value: T, current: R) => R, initial: R) {
     this.runtime.then({
-      name: "reduce",
+      name: 'reduce',
       fn: (item: T) => {
         initial = fn(item, initial);
         return initial;
@@ -330,8 +286,8 @@ export class Task<
 
         return false;
       },
-      "retryWhile",
-      true
+      'retryWhile',
+      true,
     );
 
     return this;
@@ -339,19 +295,13 @@ export class Task<
 
   public timeout(max: number) {
     this.runtime.then({
-      name: "timeout",
+      name: 'timeout',
       fn: (v) => {
         const pos = this.runtime.position;
         const time = Date.now();
         this.runtime.addHook(Triggers.Step, () => {
-          if (
-            // this.runtime.branchId === TaskBranches.Success &&
-            Date.now() - time >=
-            max
-          ) {
-            this.runtime.branches[TaskBranches.Fail] = new TimeOutError(
-              `TimeOutError: ${Date.now() - time} > ${max}`
-            );
+          if (Date.now() - time >= max) {
+            this.runtime.branches[TaskBranches.Fail] = new TimeOutError(`TimeOutError: ${Date.now() - time} > ${max}`);
             this.runtime.branchId = TaskBranches.Fail;
             this.runtime.rejectPosition = pos - 1;
           }
@@ -370,7 +320,7 @@ export class Task<
    */
   public access<E>() {
     this.runtime.then({
-      name: "access",
+      name: 'access',
       fn: () => this.env,
       branch: TaskBranches.Success,
     });
@@ -386,14 +336,14 @@ export class Task<
   public provide<E extends Partial<ReqENV>>(env: E) {
     this.runtime.then(
       {
-        name: "provide",
+        name: 'provide',
         fn: (v: T) => {
           this.env = { ...env, ...this.env };
           return v;
         },
         branch: TaskBranches.Success,
       },
-      false
+      false,
     );
 
     return this.castThis<T, ReqENV, ProvEnv & E>();
@@ -410,7 +360,7 @@ export class Task<
       : [
           Errors: {
             [k in keyof DiffErr<ReqENV, ProvEnv>]: DiffErr<ReqENV, ProvEnv>[k];
-          }
+          },
         ]
   ): R {
     return callHandled(
@@ -425,7 +375,7 @@ export class Task<
       },
       (err) => {
         throw err;
-      }
+      },
     ) as any;
   }
 
@@ -440,7 +390,7 @@ export class Task<
       : [
           Errors: {
             [k in keyof DiffErr<ReqENV, ProvEnv>]: DiffErr<ReqENV, ProvEnv>[k];
-          }
+          },
         ]
   ): R {
     const mapError = <E>(e: E) => new Fail(e);
@@ -455,7 +405,7 @@ export class Task<
 
         return new Result(v);
       },
-      mapError
+      mapError,
     ) as any;
   }
 
@@ -468,7 +418,7 @@ export class Task<
     const all: T[] = [];
 
     this.runtime.then({
-      name: "collectWhen",
+      name: 'collectWhen',
       fn: (item: T) => {
         if (fn(item)) {
           all.push(item);
@@ -497,7 +447,7 @@ export class Task<
    */
   public ensure(handler: (value: T) => any) {
     this.runtime.then({
-      name: "ensure",
+      name: 'ensure',
       fn: (val: T) => {
         this.runtime.addHook(Triggers.End, () => handler(val));
         return val;
@@ -509,15 +459,12 @@ export class Task<
 
   public flat<R extends T extends (infer Z)[] ? Z : never>() {
     this.castThis<T extends (infer Z)[] ? Z[] : unknown[]>().runtime.then({
-      name: "flat",
+      name: 'flat',
       fn: (value) => {
         const pos = this.runtime.position;
 
-        this.runtime.addHook(Triggers.End, () => {
-          if (
-            this.runtime.branchId === TaskBranches.Success &&
-            value.length > 0
-          ) {
+        this.runtime.addHook(Triggers.Cycle, () => {
+          if (this.runtime.branchId === TaskBranches.Success && value.length > 0) {
             this.runtime.branches[TaskBranches.Success] = value.pop();
             this.runtime.position = pos + 1;
           }
@@ -535,9 +482,9 @@ export class Task<
     let endValue: T | undefined = undefined;
 
     this.runtime.then({
-      name: "throttle",
+      name: 'throttle',
       fn: (value: T) => {
-        this.runtime.addHook(Triggers.End, () => {
+        this.runtime.addHook(Triggers.Cycle, () => {
           endValue = this.runtime.branches[TaskBranches.Success] as T;
         });
 
@@ -566,11 +513,9 @@ export class Task<
    */
   public delay(time: number) {
     this.runtime.then({
-      name: "delay",
+      name: 'delay',
       fn: (value: T) => {
-        return new Promise<T>((resolve) =>
-          setTimeout(() => resolve(value), time)
-        );
+        return new Promise<T>((resolve) => setTimeout(() => resolve(value), time));
       },
     });
 
@@ -579,7 +524,7 @@ export class Task<
 
   protected succeed(value?: T) {
     this.runtime.then({
-      name: "succeed",
+      name: 'succeed',
       fn: () => {
         this.runtime.branchId = TaskBranches.Success;
         return value;
@@ -591,7 +536,7 @@ export class Task<
 
   protected fail<ERR>(value: ERR) {
     this.runtime.then({
-      name: "fail",
+      name: 'fail',
       fn: () => {
         this.runtime.branchId = TaskBranches.Fail;
         this.runtime.branches[TaskBranches.Fail] = value;
@@ -616,9 +561,7 @@ export class Task<
    * @param fn
    * @returns
    */
-  static sequenceGen<T>(
-    fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>
-  ) {
+  static sequenceGen<T>(fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>) {
     return new Task().sequenceGen(fn).castThis<T>();
   }
 
@@ -632,24 +575,13 @@ export class Task<
     // | Generator<R, unknown, undefined>
     // | AsyncGenerator<R, unknown, undefined>;
 
-    return Task.empty
-      .sequenceGen(() =>
-        (iter[Symbol.iterator] || iter[Symbol.asyncIterator]).call(iter)
-      )
-      .castThis<R>();
+    return Task.empty.sequenceGen(() => (iter[Symbol.iterator] || iter[Symbol.asyncIterator]).call(iter)).castThis<R>();
   }
 
-  static sequenceFromObject<
-    T extends Object,
-    R extends { [k in keyof T]: [k, T[k]] }[keyof T]
-  >(obj: T) {
+  static sequenceFromObject<T extends Object, R extends { [k in keyof T]: [k, T[k]] }[keyof T]>(obj: T) {
     return new Task()
       .succeed()
-      .sequenceGen(() =>
-        (Object.entries(obj) as unknown as Generator<T, unknown, undefined>)[
-          Symbol.iterator
-        ]()
-      )
+      .sequenceGen(() => (Object.entries(obj) as unknown as Generator<T, unknown, undefined>)[Symbol.iterator]())
       .castThis<R>();
   }
 
@@ -659,18 +591,13 @@ export class Task<
     RENV extends TaskReqEnv<T>,
     PENV extends TaskProvEnv<T>,
     Err extends TaskError<T>,
-    A extends TaskAsync<T>
+    A extends TaskAsync<T>,
   >(struct: T) {
     this.runtime.then({
-      name: "structPar",
+      name: 'structPar',
       fn: async () => {
         return Object.fromEntries(
-          await Promise.all(
-            Object.entries(struct).map(async ([name, task]) => [
-              name,
-              await task.provide(this.env).runUnsafe(),
-            ])
-          )
+          await Promise.all(Object.entries(struct).map(async ([name, task]) => [name, await task.provide(this.env).runUnsafe()])),
         );
       },
     });
@@ -689,7 +616,7 @@ export class Task<
     RENV extends TaskReqEnv<T>,
     PENV extends TaskProvEnv<T>,
     Err extends TaskError<T>,
-    A extends TaskAsync<T>
+    A extends TaskAsync<T>,
   >(struct: T) {
     return new Task<R, RENV, PENV, Err, A>().structPar(struct);
   }
@@ -700,10 +627,10 @@ export class Task<
     RENV extends TaskReqEnv<T>,
     PENV extends TaskProvEnv<T>,
     Err extends TaskError<T>,
-    A extends TaskAsync<T>
+    A extends TaskAsync<T>,
   >(struct: T) {
     this.runtime.then({
-      name: "struct",
+      name: 'struct',
       fn: () => {
         const obj: Record<string, T> = {};
         const res = Object.entries(struct).reduce((val, [name, task]) => {
@@ -734,7 +661,7 @@ export class Task<
   public fromCallback<T>(fn: (cb: (value: T) => void) => unknown) {
     this.runtime.then({
       fn: () => new Promise<T>((res) => fn(res)),
-      name: "fromCallback",
+      name: 'fromCallback',
       branch: TaskBranches.Success,
     });
 
@@ -752,7 +679,7 @@ export class Task<
     RENV extends TaskReqEnv<T>,
     PENV extends TaskProvEnv<T>,
     Err extends TaskError<T>,
-    A extends TaskAsync<T>
+    A extends TaskAsync<T>,
   >(struct: T) {
     return new Task<R, RENV, PENV, Err, A>().struct(struct);
   }

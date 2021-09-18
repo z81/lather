@@ -1,4 +1,4 @@
-import { TaskRuntime } from "./taskRuntime";
+import { TaskRuntime } from './taskRuntime';
 export declare class TimeOutError extends Error {
     readonly _tag = "TimeOutError";
 }
@@ -17,8 +17,8 @@ declare type EmptyArray = unknown[] & {
     length: 0;
 };
 declare type DiffErr<RE, PD> = {
-    [k in keyof RE as k extends keyof PD ? PD[k] extends RE[k] ? never : k : k]: {
-        Error: "Incorrect dependencies";
+    [k in keyof RE as k extends keyof PD ? (PD[k] extends RE[k] ? never : k) : k]: {
+        Error: 'Incorrect dependencies';
         Field: k;
         RequiredValue: RE[k];
         ExceptedValue: unknown extends PD[k] ? undefined : PD[k];

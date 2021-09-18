@@ -9,6 +9,7 @@ export declare enum TaskBranches {
 }
 export declare enum Triggers {
     Step = "Step",
+    Cycle = "Cycle",
     End = "End"
 }
 export declare type TaskCallback<T, R> = {
@@ -26,12 +27,16 @@ export declare class TaskRuntime<T = undefined> {
     branches: Record<keyof typeof TaskBranches, unknown>;
     protected triggerMap: {
         Step: Map<number, Function>;
+        Cycle: Map<number, Function>;
         End: Map<number, Function>;
     };
     then<R>(fn: TaskCallback<T, R>, last?: boolean): TaskRuntime<R extends Promise<infer U> ? U : R>;
     addHook(type: Triggers, fn: Hook): void;
-    run(): T;
+    protected handleError<E>(e: E): void;
+    protected runStepHooks(): void;
+    run(): any;
     protected get callback(): TaskCallback<T, unknown>;
-    protected get branchValue(): unknown;
+    protected get value(): any;
+    protected set value(value: any);
 }
 export {};
