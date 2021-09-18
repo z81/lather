@@ -13,6 +13,11 @@ export declare class Fail<E> {
     constructor(error: E);
     toString(): string;
 }
+declare type ArrayReturnGuard<T> = T extends (infer Z)[] ? [] : [
+    {
+        Error: 'TypeError: Works only with Array';
+    }
+];
 declare type EmptyArray = unknown[] & {
     length: 0;
 };
@@ -106,7 +111,7 @@ export declare class Task<T, ReqENV extends Object = {}, ProvEnv extends Object 
      * @param initial
      * @returns
      */
-    reduce<R>(fn: (value: T, current: R) => R, initial: R): Task<R extends Promise<infer Z> ? Z : R, ReqENV, ProvEnv, Err, R extends Promise<infer Z_1> ? true : Async>;
+    reduce<R>(fn: (current: R, value: T) => R, initial: R): Task<R extends Promise<infer Z> ? Z : R, ReqENV, ProvEnv, Err, R extends Promise<infer Z_1> ? true : Async>;
     /**
      * repeat next functions if task is failed
      * @param fn
@@ -162,8 +167,9 @@ export declare class Task<T, ReqENV extends Object = {}, ProvEnv extends Object 
      * @returns
      */
     ensure(handler: (value: T) => any): this;
-    flat<R extends T extends (infer Z)[] ? Z : never>(): Task<R extends Promise<infer Z> ? Z : R, ReqENV, ProvEnv, Err, R extends Promise<infer Z_1> ? true : Async>;
+    flat<R extends T extends (infer Z)[] ? Z : never>(...error: ArrayReturnGuard<T>): Task<R extends Promise<infer Z> ? Z : R, ReqENV, ProvEnv, Err, R extends Promise<infer Z_1> ? true : Async>;
     throttle(time: number): Task<T extends Promise<infer Z> ? Z : T, ReqENV, ProvEnv, Err, T extends Promise<infer Z_1> ? true : Async>;
+    filter(cond: (val: T) => boolean): Task<T extends Promise<infer Z> ? Z : T, ReqENV, ProvEnv, Err, T extends Promise<infer Z_1> ? true : Async>;
     /**
      * delay task on @time ms, change type to async task
      * @param time

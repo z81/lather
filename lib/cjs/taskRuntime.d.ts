@@ -17,7 +17,7 @@ export declare type TaskCallback<T, R> = {
     fn: (value: T) => R;
     branch?: TaskBranches;
 };
-declare type Hook = (branchId: TaskBranches, rejectPosition?: number) => void;
+declare type Hook<T> = (branchId: TaskBranches, rejectPosition: number | undefined, value: T) => void;
 export declare class TaskRuntime<T = undefined> {
     protected id: number;
     callbacks: TaskCallback<T, unknown>[];
@@ -26,12 +26,12 @@ export declare class TaskRuntime<T = undefined> {
     rejectPosition?: number;
     branches: Record<keyof typeof TaskBranches, unknown>;
     protected triggerMap: {
-        Step: Map<number, Function>;
-        Cycle: Map<number, Function>;
-        End: Map<number, Function>;
+        Step: Map<string | number, Function>;
+        Cycle: Map<string | number, Function>;
+        End: Map<string | number, Function>;
     };
     then<R>(fn: TaskCallback<T, R>, last?: boolean): TaskRuntime<R extends Promise<infer U> ? U : R>;
-    addHook(type: Triggers, fn: Hook): void;
+    addHook(type: Triggers, fn: Hook<T>, id?: string | number): void;
     protected handleError<E>(e: E): void;
     protected runStepHooks(): void;
     run(): any;

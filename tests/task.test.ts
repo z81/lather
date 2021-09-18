@@ -478,7 +478,7 @@ makeTest(
 makeTest(
   async () =>
     Task.sequenceFromIterable('abc')
-      .reduce((a, b) => `${b}-${a}`, '')
+      .reduce((a, b) => `${a}-${b}`, '')
       .runUnsafe(),
   (r) => r.toEqual('-a-b-c'),
 );
@@ -660,6 +660,34 @@ makeTest(
       .runUnsafe();
   },
   (r) => r.toEqual(10000),
+);
+
+// filter
+makeTest(
+  () =>
+    Task.sequenceFromIterable([1, 2, 3, 4])
+      .filter((i) => i % 2 === 0)
+      .collectAll()
+      .runUnsafe(),
+  (r) => r.toEqual([2, 4]),
+);
+
+makeTest(
+  () =>
+    Task.sequenceFromIterable([1, 2, 3, 4, 5])
+      .filter((i) => i % 2 === 0)
+      .collectAll()
+      .runUnsafe(),
+  (r) => r.toEqual([2, 4]),
+);
+
+makeTest(
+  () =>
+    Task.sequenceFromIterable([1, 2, 3, 4, 5])
+      .filter(() => false)
+      .collectAll()
+      .runUnsafe(),
+  (r) => r.toEqual([]),
 );
 
 // type checks
