@@ -23,7 +23,7 @@ export type TaskCallback<T, R> = {
   branch?: TaskBranches;
 };
 
-type Hook = (branchId: TaskBranches, rejectPosition?: number) => void;
+type Hook<T> = (branchId: TaskBranches, rejectPosition: number | undefined, value: T) => void;
 
 let taskInstancesCount = 0;
 
@@ -38,9 +38,9 @@ export class TaskRuntime<T = undefined> {
     [TaskBranches.Fail]: undefined,
   };
   protected triggerMap = {
-    [Triggers.Step]: new Map<number, Function>(),
-    [Triggers.Cycle]: new Map<number, Function>(),
-    [Triggers.End]: new Map<number, Function>(),
+    [Triggers.Step]: new Map<number | string, Function>(),
+    [Triggers.Cycle]: new Map<number | string, Function>(),
+    [Triggers.End]: new Map<number | string, Function>(),
   };
 
   public then<R>(fn: TaskCallback<T, R>, last = true) {
@@ -48,8 +48,8 @@ export class TaskRuntime<T = undefined> {
     return this as any as TaskRuntime<R extends Promise<infer U> ? U : R>;
   }
 
-  public addHook(type: Triggers, fn: Hook) {
-    this.triggerMap[type].set(this.position, fn);
+  public addHook(type: Triggers, fn: Hook<T>, id: string | number = this.position) {
+    this.triggerMap[type].set(id, fn);
   }
 
   protected handleError<E>(e: E) {
@@ -83,10 +83,8 @@ export class TaskRuntime<T = undefined> {
               return this.run();
             })
             .catch((e) => {
-              console.log('e2', this.branchId, this.branches);
               this.handleError(e);
               this.runStepHooks();
-              console.log('e2', this.branchId, this.branches);
               return this.run();
             });
         }
@@ -100,8 +98,10 @@ export class TaskRuntime<T = undefined> {
     if (this.position >= this.callbacks.length && this.position !== Infinity) {
       this.position = Infinity;
       const promises: unknown[] = [];
+
+      const val = this.value;
       this.triggerMap[Triggers.Cycle].forEach((cb) => {
-        const res = cb(this.branchId, this.rejectPosition);
+        const res = cb(this.branchId, this.rejectPosition, val);
         if (res instanceof Promise) {
           promises.push(res);
         }

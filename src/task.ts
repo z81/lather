@@ -23,6 +23,14 @@ export class Fail<E> {
   }
 }
 
+type ArrayReturnGuard<T> = T extends (infer Z)[]
+  ? []
+  : [
+      {
+        Error: 'TypeError: Works only with Array';
+      },
+    ];
+
 type EmptyArray = unknown[] & { length: 0 };
 
 type DiffErr<RE, PD> = {
@@ -259,11 +267,11 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
    * @param initial
    * @returns
    */
-  public reduce<R>(fn: (value: T, current: R) => R, initial: R) {
+  public reduce<R>(fn: (current: R, value: T) => R, initial: R) {
     this.runtime.then({
       name: 'reduce',
       fn: (item: T) => {
-        initial = fn(item, initial);
+        initial = fn(initial, item);
         return initial;
       },
     });
@@ -417,6 +425,16 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
   public collectWhen(fn: (item: T) => boolean) {
     const all: T[] = [];
 
+    this.runtime.addHook(
+      Triggers.End,
+      () => {
+        if (all.length === 0) {
+          this.runtime.branches[TaskBranches.Success] = [];
+        }
+      },
+      'collect',
+    );
+
     this.runtime.then({
       name: 'collectWhen',
       fn: (item: T) => {
@@ -457,7 +475,7 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
     return this;
   }
 
-  public flat<R extends T extends (infer Z)[] ? Z : never>() {
+  public flat<R extends T extends (infer Z)[] ? Z : never>(...error: ArrayReturnGuard<T>) {
     this.castThis<T extends (infer Z)[] ? Z[] : unknown[]>().runtime.then({
       name: 'flat',
       fn: (value) => {
@@ -465,12 +483,12 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
 
         this.runtime.addHook(Triggers.Cycle, () => {
           if (this.runtime.branchId === TaskBranches.Success && value.length > 0) {
-            this.runtime.branches[TaskBranches.Success] = value.pop();
+            this.runtime.branches[TaskBranches.Success] = value.shift();
             this.runtime.position = pos + 1;
           }
         });
 
-        return value.pop();
+        return value.shift();
       },
     });
 
@@ -495,6 +513,28 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
             enabled = true;
           }, time);
         } else {
+          this.runtime.position = this.runtime.callbacks.length - 1;
+          return endValue;
+        }
+
+        return value;
+      },
+    });
+
+    return this.castThis<T>();
+  }
+
+  public filter(cond: (val: T) => boolean) {
+    let endValue: T | undefined = undefined;
+
+    this.runtime.then({
+      name: 'filter',
+      fn: (value: T) => {
+        this.runtime.addHook(Triggers.Cycle, (id, _, val) => {
+          endValue = val;
+        });
+
+        if (!cond(value)) {
           this.runtime.position = this.runtime.callbacks.length - 1;
           return endValue;
         }
