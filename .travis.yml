@@ -3,7 +3,7 @@ node_js:
   - "16.9"
 script:
   - npm run test
-  - npm run build:all
+before_deploy: npm run build:all
 deploy:
   - provider: npm
     tags: true
