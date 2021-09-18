@@ -1,11 +1,11 @@
-import { Fail, Result, Task, TimeOutError } from "../src/task";
-import { makeTestRunner } from "./configure";
+import { Fail, Result, Task, TimeOutError } from '../src/task';
+import { makeTestRunner } from './configure';
 
 const makeTest = makeTestRunner(__filename);
 
 makeTest(
   () => Task.succeed(3).runUnsafe(),
-  (r) => r.toBe(3)
+  (r) => r.toBe(3),
 );
 
 makeTest(
@@ -13,7 +13,7 @@ makeTest(
     Task.succeed(3)
       .map((a) => a * 2)
       .runUnsafe(),
-  (r) => r.toBe(6)
+  (r) => r.toBe(6),
 );
 
 makeTest(
@@ -21,13 +21,12 @@ makeTest(
     Task.succeed(3)
       .tap((a) => a * 2)
       .runUnsafe(),
-  (r) => r.toBe(3)
+  (r) => r.toBe(3),
 );
 
 makeTest(
-  async (fn) =>
-    (await Task.succeed(3).tap(fn).runUnsafe()) && fn.mock.calls.length,
-  (r) => r.toBe(1)
+  async (fn) => (await Task.succeed(3).tap(fn).runUnsafe()) && fn.mock.calls.length,
+  (r) => r.toBe(1),
 );
 
 makeTest(
@@ -35,7 +34,7 @@ makeTest(
     Task.succeed(3)
       .chain((a) => Task.succeed(a + 3))
       .runUnsafe(),
-  (r) => r.toBe(6)
+  (r) => r.toBe(6),
 );
 
 makeTest(
@@ -45,11 +44,11 @@ makeTest(
       .chain(({ a }) =>
         Task.succeed(0)
           .access<{ b: number }>()
-          .map(({ b }) => a + b)
+          .map(({ b }) => a + b),
       )
       .provide({ a: 3, b: 3 })
       .runUnsafe(),
-  (r) => r.toBe(6)
+  (r) => r.toBe(6),
 );
 
 makeTest(
@@ -60,7 +59,7 @@ makeTest(
       .map(({ b }) => b)
       .provide({ a: 3, b: 3 })
       .runUnsafe(),
-  (r) => r.toBe(3)
+  (r) => r.toBe(3),
 );
 
 makeTest(
@@ -71,12 +70,12 @@ makeTest(
       .chain((a) => Task.succeed(a + 1).map((b) => b + 1))
       .map((a) => a + 1)
       .runUnsafe(),
-  (r) => r.toBe(7)
+  (r) => r.toBe(7),
 );
 
 makeTest(
   () => Task.succeed(3).mapTo(6).runUnsafe(),
-  (r) => r.toBe(6)
+  (r) => r.toBe(6),
 );
 
 makeTest(
@@ -86,7 +85,7 @@ makeTest(
       .map(({ n }) => n * 2)
       .provide({ n: 5 })
       .runUnsafe(),
-  (r) => r.toBe(10)
+  (r) => r.toBe(10),
 );
 
 makeTest(
@@ -97,7 +96,7 @@ makeTest(
       .map((q) => q * 2)
       .map((s) => Promise.resolve(s + 2))
       .runUnsafe(),
-  (r) => r.toBe(14)
+  (r) => r.toBe(14),
 );
 
 makeTest(
@@ -107,12 +106,12 @@ makeTest(
       .chain((s) =>
         Task.succeed(Promise.resolve(s * 2))
           .delay(5)
-          .map((q) => q + 2)
+          .map((q) => q + 2),
       )
       .chain((s) => Task.succeed(Promise.resolve(s * 3)).map((q) => q + 3))
       .map((s) => Promise.resolve(s + 4))
       .runUnsafe(),
-  (r) => r.toBe(37)
+  (r) => r.toBe(37),
 );
 
 makeTest(
@@ -120,16 +119,16 @@ makeTest(
     Task.succeed(2)
       .map((q) => q * 2)
       .map((s) => Promise.resolve(s + 2))
-      .mapError(() => "2")
+      .mapError(() => '2')
       .runUnsafe(),
-  (r) => r.toBe(6)
+  (r) => r.toBe(6),
 );
 
 // fail
 
 makeTest(
-  async () => Task.fail("6").run().toString(),
-  (r) => r.toBe("Fail: 6")
+  async () => Task.fail('6').run().toString(),
+  (r) => r.toBe('Fail: 6'),
 );
 
 makeTest(
@@ -138,51 +137,51 @@ makeTest(
       .mapError((err) => 1)
       .run()
       .toString(),
-  (r) => r.toBe("Fail: 1")
+  (r) => r.toBe('Fail: 1'),
 );
 
 makeTest(
   async () =>
-    Task.succeed("6")
+    Task.succeed('6')
       .map((s) => Promise.resolve(s))
       .runUnsafe(),
-  (r) => r.toBe("6")
+  (r) => r.toBe('6'),
 );
 
 makeTest(
   async () => {
     try {
-      (await Task.fail("6")
+      (await Task.fail('6')
         .mapError((s) => Promise.reject(s))
         .run()) && 123;
     } catch (e) {
       return e;
     }
   },
-  (r) => r.toBe(undefined)
+  (r) => r.toBe(undefined),
 );
 
 makeTest(
   async () =>
-    Task.succeed("6")
+    Task.succeed('6')
       .map((t) => {
         if (1) {
-          throw new Error("err");
+          throw new Error('err');
         }
         return t;
       })
       .mapTo(6)
       .run()
       .toString(),
-  (r) => r.toBe("Fail: Error: err")
+  (r) => r.toBe('Fail: Error: err'),
 );
 
 makeTest(
   async () =>
-    Task.succeed("6")
+    Task.succeed('6')
       .map((t) => {
         if (!0) {
-          throw new Error("err");
+          throw new Error('err');
         }
         return t;
       })
@@ -190,15 +189,13 @@ makeTest(
       .mapError(() => 9)
       .run()
       .toString(),
-  (r) => r.toBe("Fail: 9")
+  (r) => r.toBe('Fail: 9'),
 );
 
 // repeat
 makeTest(
-  async (fn) =>
-    Task.succeed("6").repeat(5).tap(fn).run().toString() &&
-    fn.mock.calls.length,
-  (r) => r.toBe(6)
+  async (fn) => Task.succeed('6').repeat(5).tap(fn).run().toString() && fn.mock.calls.length,
+  (r) => r.toBe(6),
 );
 
 let count = 0;
@@ -209,36 +206,34 @@ makeTest(
       .tap(fn)
       .runUnsafe()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(5)
+  (r) => r.toBe(5),
+);
+
+makeTest(
+  async (fn) => Task.succeed('6').repeat(2).repeat(2).tap(fn).run().toString() && fn.mock.calls.length,
+  (r) => r.toBe(5),
 );
 
 makeTest(
   async (fn) =>
-    Task.succeed("6").repeat(2).repeat(2).tap(fn).run().toString() &&
-    fn.mock.calls.length,
-  (r) => r.toBe(5)
-);
-
-makeTest(
-  async (fn) =>
-    Task.succeed("6")
+    Task.succeed('6')
       .chain(() => Task.succeed(0).repeat(2))
       .repeat(2)
       .tap(fn)
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(3)
+  (r) => r.toBe(3),
 );
 
 makeTest(
   async (fn) =>
-    Task.succeed("6")
+    Task.succeed('6')
       .chain(() => Task.succeed(0).repeat(2).tap(fn))
       .repeat(2)
       .tap(fn)
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(6)
+  (r) => r.toBe(6),
 );
 
 makeTest(
@@ -247,7 +242,7 @@ makeTest(
       .repeat(2)
       .reduce((a, b) => a + b, 0)
       .runUnsafe(),
-  (r) => r.toBe(8)
+  (r) => r.toBe(8),
 );
 
 let i = 0;
@@ -258,12 +253,12 @@ makeTest(
       .tap(() => {
         fn();
         if (i <= 3) {
-          throw "err";
+          throw 'err';
         }
       })
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(5)
+  (r) => r.toBe(5),
 );
 
 i = 0;
@@ -274,7 +269,7 @@ makeTest(
       .tap(fn)
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(1)
+  (r) => r.toBe(1),
 );
 
 // struct
@@ -284,7 +279,7 @@ makeTest(
       a: Task.succeed(1),
       b: Task.succeed(2),
     }).runUnsafe(),
-  (r) => r.toEqual({ a: 1, b: 2 })
+  (r) => r.toEqual({ a: 1, b: 2 }),
 );
 
 /* StructPar ordering */
@@ -296,7 +291,7 @@ makeTest(
     })
       .map(({ a, b }) => Math.abs(Math.round((a - b) / 4)))
       .runUnsafe(),
-  (r) => r.toEqual(0)
+  (r) => r.toEqual(0),
 );
 
 makeTest(
@@ -311,7 +306,7 @@ makeTest(
     })
       .map(({ a, b }) => a - b)
       .run(),
-  (r) => r.not.toEqual(0)
+  (r) => r.not.toEqual(0),
 );
 
 makeTest(
@@ -326,7 +321,7 @@ makeTest(
     })
       .map(({ a, b }) => a - b)
       .runUnsafe(),
-  (r) => r.not.toEqual(0)
+  (r) => r.not.toEqual(0),
 );
 
 makeTest(
@@ -341,7 +336,7 @@ makeTest(
     })
       .map(({ a, b }) => a - b)
       .runUnsafe(),
-  (r) => r.toEqual(0)
+  (r) => r.toEqual(0),
 );
 
 makeTest(
@@ -356,7 +351,7 @@ makeTest(
     })
       .map(({ a, b }) => a - b)
       .runUnsafe(),
-  (r) => r.not.toEqual(0)
+  (r) => r.not.toEqual(0),
 );
 
 makeTest(
@@ -367,7 +362,7 @@ makeTest(
     })
       .map(({ a, b }) => a - b)
       .runUnsafe(),
-  (r) => r.toEqual(0)
+  (r) => r.toEqual(0),
 );
 
 makeTest(
@@ -378,18 +373,18 @@ makeTest(
     })
       .map(({ a, b }) => a - b)
       .runUnsafe() as any) instanceof Promise,
-  (r) => r.toEqual(false)
+  (r) => r.toEqual(false),
 );
 
 makeTest(
   async () =>
     Task.structPar({
       a: Task.succeed(1),
-      b: Task.succeed("2"),
+      b: Task.succeed('2'),
     })
       .map(({ a, b }) => a + b)
       .runUnsafe(),
-  (r) => r.toEqual("12")
+  (r) => r.toEqual('12'),
 );
 
 makeTest(
@@ -399,7 +394,7 @@ makeTest(
       .map((val) => Date.now() - val)
       .map((val) => Math.round(val / 10))
       .runUnsafe(),
-  (r) => r.toEqual(1)
+  (r) => r.toEqual(1),
 );
 
 makeTest(
@@ -411,26 +406,22 @@ makeTest(
       .map((val) => Date.now() - val)
       .map((val) => Math.round(val / 30))
       .runUnsafe(),
-  (r) => r.toEqual(1)
+  (r) => r.toEqual(1),
 );
 
 makeTest(
   async () => Task.succeed(4).delay(5).runUnsafe(),
-  (r) => r.toEqual(4)
+  (r) => r.toEqual(4),
 );
 
 makeTest(
-  async (fn) =>
-    (await Task.succeed(4).ensure(fn).delay(5).runUnsafe()) &&
-    fn.mock.calls.length,
-  (r) => r.toEqual(1)
+  async (fn) => (await Task.succeed(4).ensure(fn).delay(5).runUnsafe()) && fn.mock.calls.length,
+  (r) => r.toEqual(1),
 );
 
 makeTest(
-  async (fn) =>
-    (await Task.succeed(4).delay(5).ensure(fn).runUnsafe()) &&
-    fn.mock.calls.length,
-  (r) => r.toEqual(1)
+  async (fn) => (await Task.succeed(4).delay(5).ensure(fn).runUnsafe()) && fn.mock.calls.length,
+  (r) => r.toEqual(1),
 );
 
 makeTest(
@@ -439,7 +430,7 @@ makeTest(
       .map(() => Promise.resolve(5))
       .ensure(fn)
       .runUnsafe()) && fn.mock.calls.length,
-  (r) => r.toEqual(1)
+  (r) => r.toEqual(1),
 );
 
 // seq
@@ -452,7 +443,7 @@ makeTest(
     })
       .reduce((a, b) => a + b, 0)
       .runUnsafe(),
-  (r) => r.toEqual(6)
+  (r) => r.toEqual(6),
 );
 
 makeTest(
@@ -460,36 +451,36 @@ makeTest(
     Task.sequenceFromIterable([1, 2, 3])
       .reduce((a, b) => a + b, 0)
       .runUnsafe(),
-  (r) => r.toEqual(6)
+  (r) => r.toEqual(6),
 );
 
 makeTest(
   async () =>
-    Task.sequenceFromIterable("abc")
+    Task.sequenceFromIterable('abc')
       .map((s) => `[${s}]`)
       .runUnsafe(),
-  (r) => r.toEqual("[c]")
+  (r) => r.toEqual('[c]'),
 );
 
 makeTest(
   async () =>
-    Task.sequenceFromIterable("abc")
-      .collectWhen((s) => s !== "b")
+    Task.sequenceFromIterable('abc')
+      .collectWhen((s) => s !== 'b')
       .runUnsafe(),
-  (r) => r.toEqual(["a", "c"])
+  (r) => r.toEqual(['a', 'c']),
 );
 
 makeTest(
-  async () => Task.sequenceFromIterable("abc").collectAll().runUnsafe(),
-  (r) => r.toEqual(["a", "b", "c"])
+  async () => Task.sequenceFromIterable('abc').collectAll().runUnsafe(),
+  (r) => r.toEqual(['a', 'b', 'c']),
 );
 
 makeTest(
   async () =>
-    Task.sequenceFromIterable("abc")
-      .reduce((a, b) => `${b}-${a}`, "")
+    Task.sequenceFromIterable('abc')
+      .reduce((a, b) => `${b}-${a}`, '')
       .runUnsafe(),
-  (r) => r.toEqual("-a-b-c")
+  (r) => r.toEqual('-a-b-c'),
 );
 
 // modules
@@ -499,46 +490,46 @@ makeTest(
       Task.succeed(message)
         .access<{ mLog(m: string): void }>()
         .tap(({ mLog }) => {
-          mLog("{Time}: " + message);
+          mLog('{Time}: ' + message);
         });
 
     let logData: string[] = [];
 
     const mLog = (msg: string) => logData.push(msg);
 
-    return Task.sequenceFromIterable(["one", "two"])
+    return Task.sequenceFromIterable(['one', 'two'])
       .chain((msg) =>
         Task.succeed(msg)
           .access<{ log: typeof log }>()
           .chain(({ log }) => {
             return log(msg);
-          })
+          }),
       )
       .provide({ log, mLog })
       .mapTo(logData)
       .runUnsafe();
   },
-  (r) => r.toEqual(["{Time}: one", "{Time}: two"])
+  (r) => r.toEqual(['{Time}: one', '{Time}: two']),
 );
 
 // timeout
 
-// makeTest(
-//   async () => {
-//     return await Task.succeed(0).timeout(1).delay(70).runUnsafe();
-//   },
-//   (r) => r.toBeInstanceOf(Fail)
-// );
-// --------------------
+makeTest(
+  async () => {
+    return await Task.succeed(0).timeout(1).delay(70).run();
+  },
+  (r) => r.toBeInstanceOf(Fail),
+);
+
 makeTest(
   async () => {
     let i = 0;
-    return await Task.succeed("google")
+    return await Task.succeed('google')
       .map((q) => new Promise((res, rej) => rej(0)))
-      .mapError((e) => "3")
+      .mapError((e) => '3')
       .run();
   },
-  (r) => r.toBeInstanceOf(Fail)
+  (r) => r.toBeInstanceOf(Fail),
 );
 
 makeTest(
@@ -554,11 +545,11 @@ makeTest(
             } else {
               res(`<html>${url}<html>`);
             }
-          }, 100) // Math.random() * 100 + (id % 10 ? 100000 : 1))
+          }, 100), // Math.random() * 100 + (id % 10 ? 100000 : 1))
       );
     };
     try {
-      return await Task.succeed("google")
+      return await Task.succeed('google')
         .retryWhile(() => true)
         .map(getPage)
         .runUnsafe();
@@ -566,7 +557,7 @@ makeTest(
       return e;
     }
   },
-  (r) => r.toBe("<html>google<html>")
+  (r) => r.toBe('<html>google<html>'),
 );
 
 makeTest(
@@ -577,15 +568,13 @@ makeTest(
       .map((v) => v * 2)
       .run();
   },
-  (r) => r.toBeInstanceOf(Fail)
+  (r) => r.toBeInstanceOf(Fail),
 );
 
 makeTest(
-  async (fn) =>
-    (await Task.succeed(0).timeout(1).delay(50).map(fn).run()) &&
-    fn.mock.calls.length,
+  async (fn) => (await Task.succeed(0).timeout(1).delay(50).map(fn).run()) && fn.mock.calls.length,
 
-  (r) => r.toBe(0)
+  (r) => r.toBe(0),
 );
 
 makeTest(
@@ -596,34 +585,28 @@ makeTest(
       .delay(50)
       .map(() => 1)
       .run(),
-  (r) => r.toBeInstanceOf(Fail)
+  (r) => r.toBeInstanceOf(Fail),
 );
 
 makeTest(
   async (fn) => {
     try {
-      await Task.succeed(0)
-        .timeout(50)
-        .delay(5)
-        .map(fn)
-        .delay(500)
-        .map(fn)
-        .runUnsafe();
+      await Task.succeed(0).timeout(50).delay(5).map(fn).delay(500).map(fn).runUnsafe();
     } catch (e) {
       return fn.mock.calls.length;
     }
   },
 
-  (r) => r.toBe(1)
+  (r) => r.toBe(1),
 );
 
 makeTest(
   async () =>
     Task.succeed([1, 2, 3])
       .flat()
-      .reduce((a, b) => a + b, "")
+      .reduce((a, b) => a + b, '')
       .runUnsafe(),
-  (r) => r.toEqual("123")
+  (r) => r.toEqual('123'),
 );
 
 makeTest(
@@ -636,47 +619,47 @@ makeTest(
       .throttle(500)
       .collectAll()
       .runUnsafe(),
-  (r) => r.toEqual([0, 5])
+  (r) => r.toEqual([0, 5]),
 );
 
-// max stack
+// max call stack
 makeTest(
   async () => {
     let task = Task.succeed(0);
-    for (let i = 0; i < 2000; i++) {
+    for (let i = 0; i < 20000; i++) {
       task = task.map((s) => s + 1);
     }
 
     return task.runUnsafe();
   },
-  (r) => r.toEqual(2000)
+  (r) => r.toEqual(20000),
 );
 
 makeTest(
   async () => {
     let task = Task.succeed(0);
-    for (let i = 0; i < 1000; i++) {
+    for (let i = 0; i < 10000; i++) {
       task = task.map((s) => s + 1);
     }
 
     return task
       .chain((t) => {
         let task = Task.succeed(t);
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10000; i++) {
           task = task.map((s) => s + 1);
         }
         return task;
       })
       .chain((t) => {
         let task = Task.succeed(t);
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 10000; i++) {
           task = task.map((s) => s - 1);
         }
         return task;
       })
       .runUnsafe();
   },
-  (r) => r.toEqual(1000)
+  (r) => r.toEqual(10000),
 );
 
 // type checks
