@@ -73,7 +73,6 @@ export declare class Task<T, ReqENV extends Object = {}, ProvEnv extends Object 
      * @returns
      */
     chain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(fn: (value: T) => Task<NT, NRE, NPE, NER, A>): Task<NT extends Promise<infer Z> ? Z : NT, ReqENV & NRE, ProvEnv & NPE, NER, NT extends Promise<infer Z_1> ? true : NA>;
-    tapChain<NT, NRE, NPE, NER, A extends boolean, NA extends boolean = Async extends true ? true : A>(fn: (value: T) => Task<NT, NRE, NPE, NER, A>): Task<T extends Promise<infer Z> ? Z : T, ReqENV & NRE, ProvEnv & NPE, NER, T extends Promise<infer Z_1> ? true : NA>;
     /**
      * Map to value
      * @param value
@@ -85,7 +84,7 @@ export declare class Task<T, ReqENV extends Object = {}, ProvEnv extends Object 
      * @param fn
      * @returns
      */
-    tap<R>(fn: (value: T) => R): Task<T extends Promise<infer Z> ? Z : T, ReqENV, ProvEnv, Err, T extends Promise<infer Z_1> ? true : Async>;
+    tap<R, NT, NRE, NPE, NER = Err, A extends boolean = Async, NA extends boolean = Async extends true ? true : A>(fn: (value: T) => R | Task<NT, NRE, NPE, NER, A>): Task<T extends Promise<infer Z> ? Z : T, NA extends never ? ReqENV : ReqENV & NRE, NA extends never ? ProvEnv : ProvEnv & NPE, NA extends never ? Err : NER, T extends Promise<infer Z_1> ? true : NA extends never ? Async : NA>;
     protected repeatWhileCond<U extends (value: T) => boolean>(fn: U, name: string, toReject?: boolean): Task<T extends Promise<infer Z> ? Z : T, ReqENV, ProvEnv, Err, T extends Promise<infer Z_1> ? true : Async>;
     /**
      * Repeat next functions when(condition function)
@@ -189,7 +188,7 @@ export declare class Task<T, ReqENV extends Object = {}, ProvEnv extends Object 
      * @param fn
      * @returns
      */
-    static sequenceGen<T>(fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>): Task<T extends Promise<infer Z> ? Z : T, {}, {}, Error, T extends Promise<infer Z_1> ? true : false>;
+    static sequenceFromGen<T>(fn: () => Generator<T, void, unknown> | AsyncGenerator<T, void, unknown>): Task<T extends Promise<infer Z> ? Z : T, {}, {}, Error, T extends Promise<infer Z_1> ? true : false>;
     /**
      * Create succeed task from iterable
      * @param fn
