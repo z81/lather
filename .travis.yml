@@ -4,22 +4,17 @@ node_js:
 script:
   - npm run test
   - npm run build:all
-
 deploy:
   - provider: npm
     tags: true
     email: "$NPM_EMAIL"
     api_key: $NPM_TOKEN
     skip_cleanup: true
-    on:
-      branch: "master"
   - provider: pages
     skip_cleanup: true
     github_token: $GITHUB_TOKEN
     keep_history: true
-    on:
-      branch: "master"
-  - provider: script
-    script: npm run report-coverage && npm run docs
-    on:
-      branch: "master"
+
+after_success:
+  - npm run report-coverage
+  - npm run docs
