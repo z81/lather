@@ -1,7 +1,7 @@
 /**
  *
  */
-export const _ =
+export const flow =
   <T>(value: T) =>
   () =>
     value;
