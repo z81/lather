@@ -1,6 +1,6 @@
 # Pull based typesafe stream library
 [chain type DI] [safe(Result<T> | Fail<E>) or unsafe(exception | data)]
-[![npm version](https://badge.fury.io/js/@lather%2Fcore.svg)](https://badge.fury.io/js/@lather/core)
+[![npm version](https://badge.fury.io/js/@lather%2Fcore.svg)](https://badge.fury.io/js/@lather%2Fcore)
 [![Build Status](https://travis-ci.org/z81/lather.svg?branch=master)](https://app.travis-ci.com/github/z81/lather)
 [![Coverage Status](https://coveralls.io/repos/github/z81/lather/badge.svg?branch=master)](https://coveralls.io/github/z81/lather?branch=master)
 # Installation
