@@ -1,6 +1,6 @@
 import { Fail, Result, Task, TimeOutError } from '../src/task';
 import { makeTestRunner } from './configure';
-import { delay, _ } from '../src/fn';
+import { delay, flow } from '../src/fn';
 
 const makeTest = makeTestRunner(__filename);
 
@@ -325,20 +325,6 @@ makeTest(
   (r) => r.not.toEqual(0),
 );
 
-makeTest(
-  async () =>
-    Task.structPar({
-      a: Task.succeed(1)
-        .delay(52)
-        .map(() => Date.now()),
-      b: Task.succeed(2)
-        .delay(52)
-        .map(() => Date.now()),
-    })
-      .map(({ a, b }) => a - b)
-      .runUnsafe(),
-  (r) => r.toEqual(0),
-);
 
 makeTest(
   async () =>
@@ -387,6 +373,41 @@ makeTest(
       .runUnsafe(),
   (r) => r.toEqual('12'),
 );
+
+makeTest(
+  async () =>
+    Task.structPar({
+      a: Task.succeed(1).delay(5).mapTo(1),
+      b: Task.succeed('2').delay(5).mapTo(7),
+    })
+      .map(({ a, b }) => a + b)
+      .runUnsafe(),
+  (r) => r.toEqual(8),
+);
+
+
+makeTest(
+  async () =>
+    Task.structPar({
+      a: Task.succeed(1).map( () => new Promise<number>(r => r(1))),
+      b: Task.succeed('2').delay(5).mapTo(7),
+    })
+      .map(({ a, b }) => a + b)
+      .runUnsafe(),
+  (r) => r.toEqual(8),
+);
+
+makeTest(
+  async () =>
+    Task.struct({
+      a: Task.succeed(1).delay(5).mapTo(1),
+      b: Task.succeed('2').delay(5).mapTo(7),
+    })
+      .map(({ a, b }) => a + b)
+      .runUnsafe(),
+  (r) => r.toEqual(8),
+);
+
 
 makeTest(
   async () =>
@@ -524,13 +545,28 @@ makeTest(
 
 makeTest(
   async () => {
-    let i = 0;
     return await Task.succeed('google')
       .map((q) => new Promise((res, rej) => rej(0)))
       .mapError((e) => '3')
       .run();
   },
   (r) => r.toBeInstanceOf(Fail),
+)
+
+makeTest(
+  async () => {
+    return await Task.succeed('google')
+      .map((q) => {
+        if (1 === 1) {
+          throw "e";
+        }
+        return 11;
+      })
+      .restoreWhen(() => true)
+      .mapError((e) => 5)
+      .runUnsafe();
+  },
+  (r) => r.toEqual('google'),
 );
 
 makeTest(
@@ -550,7 +586,7 @@ makeTest(
       );
     };
     try {
-      return await Task.succeed('google').retryWhile(_(true)).map(getPage).runUnsafe();
+      return await Task.succeed('google').retryWhile(flow(true)).map(getPage).runUnsafe();
     } catch (e) {
       return e;
     }
@@ -704,7 +740,7 @@ makeTest(
 makeTest(
   (fn: any) =>
     Task.succeed(1)
-      .tap(_(Task.succeed(6).tap(fn)))
+      .tap(flow(Task.succeed(6).tap(fn)))
       .runUnsafe() && fn.mock.calls.length,
   (r) => r.toEqual(1),
 );
@@ -712,7 +748,7 @@ makeTest(
 makeTest(
   (fn) =>
     Task.succeed(0)
-      .tap(_(Task.succeed(1).tap(fn)))
+      .tap(flow(Task.succeed(1).tap(fn)))
       .runUnsafe(),
   (r) => r.toEqual(0),
 );

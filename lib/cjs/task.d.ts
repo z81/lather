@@ -92,6 +92,7 @@ export declare class Task<T, ReqENV extends Object = {}, ProvEnv extends Object 
      * @returns
      */
     repeatWhile<U extends (value: T) => boolean>(fn: U): Task<T extends Promise<infer Z> ? Z : T, ReqENV, ProvEnv, Err, T extends Promise<infer Z_1> ? true : Async>;
+    restoreWhen(fn: (e: Err) => boolean): this;
     /**
      *  Repeat next functions @count times
      * @param count

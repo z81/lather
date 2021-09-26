@@ -46,7 +46,7 @@ const r = Task.succeed(1).map(n => {
     throw "Error i < 3!!!"
   }
   return i;
-}).retryWhile(() => true).run() // or .retryWhile(Retry.always)
+}).retryWhile(() => true).run() // or .retryWhile(Conditions.always)
 // r = 4
 ```
 
@@ -57,7 +57,7 @@ const r = Task.succeed(1).map(n => {
     throw "Error i < 3!!!"
   }
   return i;
-}).retryWhile(Retry.times(7)).run()
+}).retryWhile(Conditions.times(7)).run()
 // r = 4
 ```
 

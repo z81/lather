@@ -1,5 +1,5 @@
-import { callHandled } from './callHandled';
-import { TaskBranches, TaskRuntime, Triggers } from './taskRuntime';
+import {callHandled} from './callHandled';
+import {TaskBranches, TaskRuntime, Triggers} from './taskRuntime';
 
 export class TimeOutError extends Error {
   public readonly _tag = 'TimeOutError';
@@ -203,6 +203,22 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
    */
   public repeatWhile<U extends (value: T) => boolean>(fn: U) {
     return this.repeatWhileCond(fn, 'repeatWhile');
+  }
+
+  public restoreWhen(fn: (e: Err) => boolean) {
+    this.runtime.then({
+      name: "restoreWhen",
+      fn: (v) => {
+        if (fn(this.runtime.branches[TaskBranches.Fail] as any)) {
+          this.runtime.branchId = TaskBranches.Success;
+          return this.runtime.branches[TaskBranches.Success];
+        }
+        return v;
+      },
+      branch: TaskBranches.Fail
+    })
+
+    return this;
   }
 
   /**
