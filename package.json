@@ -1,6 +1,6 @@
 {
   "name": "@lather/core",
-  "version": "0.4.16",
+  "version": "0.4.17",
   "license": "MIT",
   "main": "./lib/cjs/index.js",
   "module": "./lib/esm/index.js",
