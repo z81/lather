@@ -1,10 +1,10 @@
 {
   "name": "@lather/core",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "license": "MIT",
   "main": "./lib/cjs/index.js",
-  "module": "./index.js",
-  "types": "./index.d.ts",
+  "module": "./lib/esm/index.js",
+  "types": "./lib/esm/index.d.ts",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --minify --sourcemap=external --outfile=dist/index.js",
     "watch": "esbuild src/index.ts --bundle --watch --sourcemap=external --outfile=dist/index.js",
@@ -20,14 +20,17 @@
     "test:watch": "jest --watchAll --coverage",
     "docs": "typedoc src/index.ts --excludePrivate --excludeProtected --excludeInternal",
     "build:all": "rimraf lib && yarn build:esm && yarn build:cjs",
-    "build:esm": "tsc --outDir .",
+    "build:esm": "tsc --outDir lib/esm",
     "build:cjs": "tsc --module commonjs --outDir lib/cjs",
     "report-coverage": "cat ./coverage/lcov.info | coveralls"
   },
   "files": [
-    "/lib",
-    "/"
+    "/lib"
   ],
+  "exports": {
+    "import": "./lib/esm/index.js",
+    "require": "./lib/cjs/index.js"
+  },
   "jest": {
     "transform": {
       "^.+\\.tsx?$": [
