@@ -234,16 +234,16 @@ makeTest(
       .tap(fn)
       .run()
       .toString() && fn.mock.calls.length,
-  (r) => r.toBe(6),
+  (r) => r.toBe(12),
 );
 
 makeTest(
   async () =>
-    Task.succeed(2)
+    Task.succeed(1)
       .repeat(2)
       .reduce((a, b) => a + b, 0)
       .runUnsafe(),
-  (r) => r.toBe(8),
+  (r) => r.toBe(3),
 );
 
 let i = 0;

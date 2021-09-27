@@ -180,11 +180,9 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
   protected repeatWhileCond<U extends (value: T) => boolean>(fn: U, name: string, toReject = false) {
     this.runtime.then({
       fn: (val: T) => {
-        let pos = this.runtime.position;
-
         this.runtime.addHook(Triggers.Cycle, () => {
           if (this.runtime.position === Infinity && fn(this.runtime.branches[this.runtime.branchId] as T)) {
-            this.runtime.position = toReject ? this.runtime.rejectPosition! : pos;
+            this.runtime.position = toReject ? this.runtime.rejectPosition! : 0;
             this.runtime.rejectPosition = undefined;
           }
         });

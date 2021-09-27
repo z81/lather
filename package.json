@@ -1,10 +1,10 @@
 {
   "name": "@lather/core",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "license": "MIT",
   "main": "./lib/cjs/index.js",
   "module": "./index.js",
-  "types": "./lib/esm/index.d.ts",
+  "types": "./index.d.ts",
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --minify --sourcemap=external --outfile=dist/index.js",
     "watch": "esbuild src/index.ts --bundle --watch --sourcemap=external --outfile=dist/index.js",
