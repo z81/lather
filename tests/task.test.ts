@@ -341,16 +341,6 @@ makeTest(
   (r) => r.not.toEqual(0),
 );
 
-makeTest(
-  async () =>
-    Task.struct({
-      a: Task.succeed(1).map(() => Date.now()),
-      b: Task.succeed(2).map(() => Date.now()),
-    })
-      .map(({ a, b }) => a - b)
-      .runUnsafe(),
-  (r) => r.toEqual(0),
-);
 
 makeTest(
   async () =>
