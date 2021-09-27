@@ -496,13 +496,14 @@ export class Task<T, ReqENV extends Object = {}, ProvEnv extends Object = {}, Er
 
         this.runtime.addHook(Triggers.Cycle, () => {
           if (this.runtime.branchId === TaskBranches.Success && value.length > 0) {
-            this.runtime.branches[TaskBranches.Success] = value.shift();
+            this.runtime.branches[TaskBranches.Success] = value?.shift();
             this.runtime.position = pos + 1;
           }
         });
 
-        return value.shift();
+        return value?.shift();
       },
+      branch: TaskBranches.Success
     });
 
     return this.castThis<R>();
