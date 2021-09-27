@@ -23,9 +23,6 @@
     "build:cjs": "tsc --module commonjs --outDir lib/cjs",
     "report-coverage": "cat ./coverage/lcov.info | coveralls"
   },
-  "files": [
-    "/lib"
-  ],
   "exports": {
     "./": {
       "import": "./lib/esm/",
