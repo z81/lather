@@ -109,10 +109,9 @@ class Task {
     repeatWhileCond(fn, name, toReject = false) {
         this.runtime.then({
             fn: (val) => {
-                let pos = this.runtime.position;
                 this.runtime.addHook(taskRuntime_1.Triggers.Cycle, () => {
                     if (this.runtime.position === Infinity && fn(this.runtime.branches[this.runtime.branchId])) {
-                        this.runtime.position = toReject ? this.runtime.rejectPosition : pos;
+                        this.runtime.position = toReject ? this.runtime.rejectPosition : 0;
                         this.runtime.rejectPosition = undefined;
                     }
                 });
