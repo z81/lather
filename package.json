@@ -1,6 +1,6 @@
 {
   "name": "@lather/core",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "license": "MIT",
   "main": "./lib/cjs/index.js",
   "module": "./index.js",
@@ -25,7 +25,8 @@
     "report-coverage": "cat ./coverage/lcov.info | coveralls"
   },
   "files": [
-    "/lib"
+    "/lib",
+    "/"
   ],
   "jest": {
     "transform": {
